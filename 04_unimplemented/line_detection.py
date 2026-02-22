@@ -47,9 +47,8 @@ def detect_red_line():
         angle_deg = None
         offset_px = None
 
-        # Quick area gate so we don't run Hough on garbage
         if cv.countNonZero(mask) > MIN_MASK_AREA:
-            # Edge detection on the mask (better than on raw frame for this use-case)
+            # Edge detection on the mask
             edges = cv.Canny(mask, CANNY1, CANNY2)
 
             # Probabilistic Hough -> line segments
@@ -63,10 +62,6 @@ def detect_red_line():
             )
 
             if lines is not None and len(lines) > 0:
-                # Compute a length-weighted average direction
-                # We'll express "heading error" as:
-                #   0 deg = vertical line (straight ahead)
-                #   + = line tilts to the right, - = tilts to the left
                 sum_w = 0.0
                 sum_sin = 0.0
                 sum_cos = 0.0
