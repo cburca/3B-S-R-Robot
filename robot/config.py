@@ -52,11 +52,9 @@ class Config:
     # encoder counts per revolution
     ENCODER_CPR = 360 
 
-    # I2C Communication
-    I2C_BUS = 1
-    ARDUINO_ADDR = 0x08
-    REG_PWM = 0x10
-    REG_ENC = 0x20
+    # USB Serial Params
+    SERIAL_PORT = 'COM3'  # update when applicable
+    BAUD_RATE = 9600 # update to real value
 
     # PWM command scaling to int16 sent to Arduino - CHANGE BASED ON ENCODER COUNTS PER REVOLUTION AND DESIRED SPEED RANGE
     CMD_SCALE = 1000
