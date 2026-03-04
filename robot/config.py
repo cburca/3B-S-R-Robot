@@ -50,7 +50,7 @@ class Config:
     V_MIN = 0.05
 
     # encoder counts per revolution
-    ENCODER_CPR = 360 
+    ENCODER_CPR = 2797
 
     # USB Serial Params
     SERIAL_PORT = 'COM3'  # update when applicable
