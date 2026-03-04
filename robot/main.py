@@ -47,7 +47,7 @@ def main():
     outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
 
     io = USBSerial(cfg.SERIAL_PORT, baudrate=cfg.BAUD_RATE)
-    io.connect(handshake=True)
+    io.connect()
 
     # inital states
     yaw_cmd = 0.0         # yaw rate command (rad/s)
@@ -93,9 +93,9 @@ def main():
             # inner
             if now >= t_next_inner:
                 w_l, w_r = mixer.wheel_speed_setpoints(v_cmd, yaw_cmd)
-                l_tps = omega_to_ticks_per_sec(w_l, cfg.ENCODER_CPR)
-                r_tps = omega_to_ticks_per_sec(w_r, cfg.ENCODER_CPR)
-                send_vel(io, l_tps, r_tps)
+                l_cps = omega_to_ticks_per_sec(w_l, cfg.ENCODER_CPR)
+                r_cps = omega_to_ticks_per_sec(w_r, cfg.ENCODER_CPR)
+                send_vel(io, l_cps, r_cps)
 
                 while t_next_inner <= now:
                     t_next_inner += cfg.DT_INNER

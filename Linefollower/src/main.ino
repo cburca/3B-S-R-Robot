@@ -21,11 +21,11 @@ static int16_t openR = 0;
 // Watchdog timestamp
 static uint32_t lastCmdMs = 0;
 
-// -------------------- Serial line buffer --------------------
+// Serial line buffer
 static char lineBuf[80];
 static uint8_t lineLen = 0;
 
-// -------------------- Helpers --------------------
+// Helpers
 static inline int16_t clampI16(int32_t v, int16_t lo, int16_t hi) {
   if (v < lo) return lo;
   if (v > hi) return hi;
@@ -117,7 +117,7 @@ static void pollSerial() {
 
 // Arduino setup and loop
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(BAUD);
 
   // Bring up encoders (must set up ISRs inside Encoders::begin)
   encoders.begin(ENC_L_A, ENC_L_B, ENC_L_SIGN,

@@ -9,7 +9,7 @@ class USBSerial:
         self.port = port_name
         self.ser = serial.Serial
         
-    def connect(self, handshake: bool, ):
+    def connect(self):
         """opens serial port + handshake"""
         self.ser = serial.Serial(
                 timeout=self.timeout, 
@@ -17,19 +17,6 @@ class USBSerial:
                 port=self.port
             )
         
-        # might not implement
-        if handshake:
-            # handshake: send "SIX\n", expect "SEVEN\n"
-            self.write("SIX\n")
-            start_time = time.time()
-            while time.time() - start_time < 5:  # wait up to 5 seconds
-                response = self.read()
-                if response == "SEVEN":
-                    print("Handshake successful!")
-                    return True
-            print("Handshake failed.")
-            return False
-
     def write(self, data):
         if self.ser and self.ser.is_open:
             self.ser.write(data.encode())

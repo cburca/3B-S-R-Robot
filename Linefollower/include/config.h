@@ -2,7 +2,7 @@
 #include <Arduino.h>
 #include "motors.h"
 
-// -------------------- Serial --------------------
+// ++ SERIAL ++
 static const uint32_t BAUD = 115200;
 
 // telemetry period (ms)
@@ -40,10 +40,9 @@ static const int8_t ENC_L_SIGN = +1;
 static const int8_t ENC_R_SIGN = +1;
 
 // ++ CONTROL ++
-// Controller update frequency (Hz)
 static const float CTRL_HZ = 100.0f;
 
-// PID Gains (ticks/sec control)
+// PID Gains - TO BE UPDATED
 static const float KP = 1.0f;
 static const float KI = 0.1f;
 static const float KD = 0.01f;

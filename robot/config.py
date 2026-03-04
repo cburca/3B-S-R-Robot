@@ -46,7 +46,7 @@ class Config:
     KI_W = 11.97
     U_PWM_LIMIT = 1.0 # normalized PWM
 
-    KV = 0.6  # tune: v_cmd = vmax (1 - KV*|yaw_cmd|)  (your report form) :contentReference[oaicite:8]{index=8}
+    KV = 0.6  # TO BE TUNED: v_cmd = vmax (1 - KV*|yaw_cmd|)
     V_MIN = 0.05
 
     # encoder counts per revolution
@@ -55,6 +55,3 @@ class Config:
     # USB Serial Params
     SERIAL_PORT = 'COM3'  # update when applicable
     BAUD_RATE = 115200 # update to real value
-
-    # PWM command scaling to int16 sent to Arduino - CHANGE BASED ON ENCODER COUNTS PER REVOLUTION AND DESIRED SPEED RANGE
-    CMD_SCALE = 1000
