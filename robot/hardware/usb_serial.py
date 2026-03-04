@@ -17,6 +17,7 @@ class USBSerial:
                 port=self.port
             )
         
+        # might not implement
         if handshake:
             # handshake: send "SIX\n", expect "SEVEN\n"
             self.write("SIX\n")

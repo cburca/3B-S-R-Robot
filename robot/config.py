@@ -54,7 +54,7 @@ class Config:
 
     # USB Serial Params
     SERIAL_PORT = 'COM3'  # update when applicable
-    BAUD_RATE = 9600 # update to real value
+    BAUD_RATE = 115200 # update to real value
 
     # PWM command scaling to int16 sent to Arduino - CHANGE BASED ON ENCODER COUNTS PER REVOLUTION AND DESIRED SPEED RANGE
     CMD_SCALE = 1000

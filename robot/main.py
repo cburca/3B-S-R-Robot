@@ -7,10 +7,28 @@ from vision.red_line import RedLineDetector
 from control.outer_heading_pd import HeadingPD
 from control.mixer import DiffDriveMixer
 from hardware.usb_serial import USBSerial
-from hardware.encoder_speed import EncoderSpeedEstimator
+
 
 def clamp(x, lo, hi):
     return lo if x < lo else hi if x > hi else x
+
+
+def omega_to_ticks_per_sec(omega_rad_s, cpr):
+    return omega_rad_s * (cpr / (2.0 * math.pi))
+
+
+def send_vel(io, l_tps, r_tps):
+    if hasattr(io, "set_vel"):
+        io.set_vel(l_tps, r_tps)
+        return
+    if hasattr(io, "set_velocity"):
+        io.set_velocity(l_tps, r_tps)
+        return
+    if hasattr(io, "write"):
+        io.write(f"V {l_tps:.3f} {r_tps:.3f}\n")
+        return
+    raise AttributeError("USBSerial has no set_vel/set_velocity/write method")
+
 
 def main():
     cfg = Config()
@@ -28,21 +46,17 @@ def main():
     # Outer PD works in radians, so we’ll convert theta_deg->rad before stepping
     outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
 
-
     io = USBSerial(cfg.SERIAL_PORT, baudrate=cfg.BAUD_RATE)
     io.connect(handshake=True)
-    # speed_est = EncoderSpeedEstimator(cfg.ENCODER_CPR, dt=cfg.DT_INNER, alpha=0.35)
 
     # inital states
-    yaw_cmd = 0.0         # normalized “uθ” in [-1,1]
+    yaw_cmd = 0.0         # yaw rate command (rad/s)
     v_cmd = 0.0           # m/s
     theta_ref_deg = 0.0   # follow vertical
 
     # timing
     t_next_inner = time.perf_counter()
     t_next_outer = time.perf_counter()
-
-    # All of this below might be defunct
 
     try:
         while True:
@@ -56,8 +70,7 @@ def main():
 
                     if valid:
                         theta_err_rad = math.radians(theta_ref_deg - theta_deg)
-
-                        yaw_cmd = outer.step(0.0, -theta_err_rad)  # err = 0 - (-err) = err
+                        yaw_cmd = outer.step(0.0, -theta_err_rad)
 
                         v_cmd = cfg.vmax * (1.0 - cfg.KV * abs(yaw_cmd))
                         v_cmd = clamp(v_cmd, cfg.V_MIN, cfg.vmax)
@@ -74,7 +87,18 @@ def main():
                         if cv.waitKey(1) & 0xFF == ord('q'):
                             break
 
-                t_next_outer += cfg.DT_OUTER
+                while t_next_outer <= now:
+                    t_next_outer += cfg.DT_OUTER
+
+            # inner
+            if now >= t_next_inner:
+                w_l, w_r = mixer.wheel_speed_setpoints(v_cmd, yaw_cmd)
+                l_tps = omega_to_ticks_per_sec(w_l, cfg.ENCODER_CPR)
+                r_tps = omega_to_ticks_per_sec(w_r, cfg.ENCODER_CPR)
+                send_vel(io, l_tps, r_tps)
+
+                while t_next_inner <= now:
+                    t_next_inner += cfg.DT_INNER
 
     finally:
         try:
@@ -84,6 +108,7 @@ def main():
             pass
         cap.release()
         cv.destroyAllWindows()
+
 
 if __name__ == "__main__":
     main()
