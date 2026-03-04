@@ -18,5 +18,7 @@ private:
 
   static int8_t readQuadDir(uint8_t aPin, uint8_t bPin);
   static void isrLeftA();
+  static void isrLeftB();
   static void isrRightA();
+  static void isrRightB();
 };

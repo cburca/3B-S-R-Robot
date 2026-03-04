@@ -5,9 +5,9 @@
 class MotorController {
 public:
   void begin(Encoders* enc, Motors* mot, float hz);
-  void setTargets(float left, float right); // ticks/s or rad/s
+  void setTargets(float left, float right); // ticks/s
   void update(); // fixed-rate
-  void stop();   // set targets 0 + reset integrators (optional)
+  void stop();
 private:
   PID _pidL, _pidR;
   Encoders* _enc;

@@ -22,8 +22,16 @@ void Encoders::isrLeftA() {
   _leftCount += (int32_t)(_lSign * readQuadDir(_lA, _lB));
 }
 
+void Encoders::isrLeftB() {
+  _leftCount += (int32_t)(_lSign * readQuadDir(_lB, _lA));
+}
+
 void Encoders::isrRightA() {
   _rightCount += (int32_t)(_rSign * readQuadDir(_rA, _rB));
+}
+
+void Encoders::isrRightB() {
+  _rightCount += (int32_t)(_rSign * readQuadDir(_rB, _rA));
 }
 
 void Encoders::begin(uint8_t lA, uint8_t lB, int8_t lSign,
@@ -37,7 +45,9 @@ void Encoders::begin(uint8_t lA, uint8_t lB, int8_t lSign,
   pinMode(_rB, INPUT_PULLUP);
 
   attachInterrupt(digitalPinToInterrupt(_lA), Encoders::isrLeftA, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(_lB), Encoders::isrLeftB, CHANGE);
   attachInterrupt(digitalPinToInterrupt(_rA), Encoders::isrRightA, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(_rB), Encoders::isrRightB, CHANGE);
 }
 
 void Encoders::readCounts(int32_t &left, int32_t &right) const {

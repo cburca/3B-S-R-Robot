@@ -5,25 +5,20 @@ class Motors {
 public:
   enum class StopMode : uint8_t {
     Coast = 0,   // both PWM = 0
-    Brake        // optional; only if your driver supports it (see setStopMode)
   };
 
   Motors();
 
-  // If your driver has a single enable pin for both channels, pass it here.
-  // If you don't have an enable pin, pass enablePin = 255 (default).
   void begin(uint8_t lFwdPwm, uint8_t lRevPwm,
              uint8_t rFwdPwm, uint8_t rRevPwm,
              uint8_t enablePin = 255, // add enablepin numbers
              bool enableActiveHigh = true);
 
-  // Signed command in range [-255, +255].
   // + => forward (drives FWD PWM), - => reverse (drives REV PWM)
   void setLeft(int16_t cmd);
   void setRight(int16_t cmd);
   void set(int16_t leftCmd, int16_t rightCmd);
 
-  // Convenience for normalized [-1.0, +1.0]
   void setLeftNorm(float u);
   void setRightNorm(float u);
   void setNorm(float leftU, float rightU);
@@ -35,10 +30,9 @@ public:
   void enable();
   void disable();
 
-  // Immediately stop both motors using configured StopMode
+  // Immediately stop both motors
   void stop();
 
-  // Optional: per-motor command limiting (e.g., cap at 200)
   void setMaxAbsCmd(uint8_t maxAbs); // 1..255 / maybe we will hard code this to 255
 
   // For debugging / telemetry
