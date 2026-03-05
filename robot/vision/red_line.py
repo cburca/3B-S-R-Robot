@@ -3,9 +3,10 @@ import cv2 as cv
 import numpy as np
 import math
 
+
 def wrap_deg(a: float) -> float:
-    """Wrap angle to (-180, 180)."""
     return (a + 180.0) % 360.0 - 180.0
+
 
 class RedLineDetector:
     """
@@ -13,12 +14,11 @@ class RedLineDetector:
       angle_deg: heading error in degrees (0 = vertical), + right tilt, - left tilt
       offset_px: x offset at y_ref from image center (pixels), + right, - left
       valid:     True if line detected
-      debug:     dictionaty with optional debug frames (mask/edges) if enabled
+      debug:     dictionary with optional debug frames (mask/edges/frame) if enabled
     """
     def __init__(self, cfg):
         self.cfg = cfg
 
-        # HSV red thresholds (two ranges because red wraps hue)
         self.red_lower1 = np.array(cfg.RED_LOWER1, dtype=np.uint8)
         self.red_upper1 = np.array(cfg.RED_UPPER1, dtype=np.uint8)
         self.red_lower2 = np.array(cfg.RED_LOWER2, dtype=np.uint8)
@@ -42,7 +42,6 @@ class RedLineDetector:
         offset_px = None
         edges = None
 
-        # Quick area gate
         if cv.countNonZero(mask) > self.cfg.MIN_MASK_AREA:
             edges = cv.Canny(mask, self.cfg.CANNY1, self.cfg.CANNY2)
 
@@ -56,7 +55,6 @@ class RedLineDetector:
             )
 
             if lines is not None and len(lines) > 0:
-                # length-weighted average direction (your logic)
                 sum_w = 0.0
                 sum_sin = 0.0
                 sum_cos = 0.0
@@ -66,16 +64,17 @@ class RedLineDetector:
                 sum_wxref = 0.0
 
                 for (x1, y1, x2, y2) in lines[:, 0, :]:
+                    if y2 < y1:
+                        x1, y1, x2, y2 = x2, y2, x1, y1
+
                     dx = x2 - x1
                     dy = y2 - y1
                     length = math.hypot(dx, dy)
                     if length < 1e-6:
                         continue
 
-                    ang_from_x = math.degrees(math.atan2(dy, dx))
-                    ang_from_vert = wrap_deg(ang_from_x - 90.0)
+                    ang_from_vert = wrap_deg(math.degrees(math.atan2(dx, dy)))
 
-                    # keep only lines within ±MAX_ABS_DEG_FROM_VERTICAL
                     if abs(ang_from_vert) > self.cfg.MAX_ABS_DEG_FROM_VERTICAL:
                         continue
 
@@ -86,7 +85,6 @@ class RedLineDetector:
                     sum_cos += wgt * math.cos(rad)
                     sum_sin += wgt * math.sin(rad)
 
-                    # offset at y_ref (your logic)
                     if abs(dy) > 1e-6:
                         t = (y_ref - y1) / dy
                         x_at_y = x1 + t * dx
