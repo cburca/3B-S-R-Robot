@@ -20,10 +20,10 @@ def detect_red_line():
     red_upper2 = np.array([180, 255, 255])
 
     # Tuning knobs
-    MIN_MASK_AREA = 800          # ignore tiny red blobs
-    CANNY1, CANNY2 = 50, 150     # edge detection thresholds
+    MIN_MASK_AREA = 400          # ignore tiny red blobs
+    CANNY1, CANNY2 = 25, 175     # edge detection thresholds
     HOUGH_THRESH = 30            # votes needed
-    MIN_LINE_LEN = 30            # pixels
+    MIN_LINE_LEN = 25            # pixels
     MAX_LINE_GAP = 10            # pixels
 
     while True:
@@ -72,40 +72,37 @@ def detect_red_line():
                 sum_wxref = 0.0
 
                 MAX_ABS_DEG_FROM_VERTICAL = 90.0  # keep only lines within ±45° of vertical
+                
+            for (x1, y1, x2, y2) in lines[:, 0, :]:
+                if y2 < y1:
+                    x1, y1, x2, y2 = x2, y2, x1, y1
 
-                for (x1, y1, x2, y2) in lines[:, 0, :]:
-                    dx = x2 - x1
-                    dy = y2 - y1
-                    length = math.hypot(dx, dy)
-                    if length < 1e-6:
-                        continue
+                dx = x2 - x1
+                dy = y2 - y1
+                length = math.hypot(dx, dy)
+                if length < 1e-6:
+                    continue
 
-                    # Angle relative to vertical (0 = vertical). Range [-180,180)
-                    ang_from_x = math.degrees(math.atan2(dy, dx))
-                    ang_from_vert = wrap_deg(ang_from_x - 90.0)
+                ang_from_vert = math.degrees(math.atan2(dx, dy))  # robust to endpoint flip now
 
-                    # ---- FILTER: reject anything beyond ±45° from vertical (i.e., too horizontal/diagonal)
-                    if abs(ang_from_vert) > MAX_ABS_DEG_FROM_VERTICAL:
-                        continue
+                MAX_ABS_DEG_FROM_VERTICAL = 45.0
+                if abs(ang_from_vert) > MAX_ABS_DEG_FROM_VERTICAL:
+                    continue
 
-                    # Weight by segment length
-                    wgt = length
-                    sum_w += wgt
+                wgt = length
+                sum_w += wgt
+                rad = math.radians(ang_from_vert)
+                sum_cos += wgt * math.cos(rad)
+                sum_sin += wgt * math.sin(rad)
 
-                    rad = math.radians(ang_from_vert)
-                    sum_cos += wgt * math.cos(rad)
-                    sum_sin += wgt * math.sin(rad)
+                if abs(dy) > 1e-6:
+                    t = (y_ref - y1) / dy
+                    x_at_y = x1 + t * dx
+                    if -0.25 <= t <= 1.25:
+                        sum_xref += wgt * x_at_y
+                        sum_wxref += wgt
 
-                    # Offset calc at y_ref (same as before)
-                    if abs(dy) > 1e-6:
-                        t = (y_ref - y1) / dy
-                        x_at_y = x1 + t * dx
-                        if -0.25 <= t <= 1.25:
-                            sum_xref += wgt * x_at_y
-                            sum_wxref += wgt
-
-                    # Debug draw ONLY accepted segments
-                    cv.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
                 if sum_w > 0:
                     angle_deg = math.degrees(math.atan2(sum_sin, sum_cos))
