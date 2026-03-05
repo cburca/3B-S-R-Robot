@@ -46,9 +46,31 @@ def main():
     # Outer PD works in radians, so we’ll convert theta_deg->rad before stepping
     outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
 
-    io = USBSerial(cfg.SERIAL_PORT, baudrate=cfg.BAUD_RATE)
+    io = USBSerial(cfg.SERIAL_PORT, baudrate=cfg.BAUD_RATE, timeout=0.10)
     io.connect()
 
+    time.sleep(2.0)  # Arduino resets on port open
+
+    try:
+        io.ser.reset_input_buffer()
+        io.ser.reset_output_buffer()
+    except Exception:
+        pass
+
+    io.write("SIX\n")
+    t0 = time.time()
+    ok = False
+    while time.time() - t0 < 5.0:
+        r = io.read()
+        if r == "SEVEN":
+            ok = True
+            break
+    if not ok:
+        raise RuntimeError("Handshake failed")
+
+    io.write("E 1\n")
+    io.read()  # optional: consume "OK E ..."
+    
     # inital states
     yaw_cmd = 0.0         # yaw rate command (rad/s)
     v_cmd = 0.0           # m/s
@@ -96,13 +118,17 @@ def main():
                 l_cps = omega_to_ticks_per_sec(w_l, cfg.ENCODER_CPR)
                 r_cps = omega_to_ticks_per_sec(w_r, cfg.ENCODER_CPR)
                 send_vel(io, l_cps, r_cps)
+                ack = io.read()
+                if ack and ack.startswith("ERR"):
+                    print("ARDUINO:", ack)
 
                 while t_next_inner <= now:
                     t_next_inner += cfg.DT_INNER
 
     finally:
         try:
-            io.set_pwm(0, 0)
+            io.write("S\n")
+            time.sleep(0.2)
             io.close()
         except Exception:
             pass
