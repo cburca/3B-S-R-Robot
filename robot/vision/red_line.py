@@ -24,23 +24,34 @@ class RedLineDetector:
         self.red_lower2 = np.array(cfg.RED_LOWER2, dtype=np.uint8)
         self.red_upper2 = np.array(cfg.RED_UPPER2, dtype=np.uint8)
 
+        k = int(cfg.MORPH_K)
+        self._kernel = np.ones((k, k), np.uint8)
+
     def process(self, frame_bgr):
-        frame = cv.resize(frame_bgr, (self.cfg.VISION_W, self.cfg.VISION_H))
+        angle_deg = None
+        offset_px = None
+        edges = None
+
+        if frame_bgr is None:
+            debug = {}
+            return angle_deg, offset_px, False, debug
+
+        if frame_bgr.shape[1] != self.cfg.VISION_W or frame_bgr.shape[0] != self.cfg.VISION_H:
+            frame = cv.resize(frame_bgr, (self.cfg.VISION_W, self.cfg.VISION_H))
+        else:
+            frame = frame_bgr
+
         h, w = frame.shape[:2]
         cx_img = w // 2
+        y_ref = int(self.cfg.YREF_FRAC * h)
 
         hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
         mask1 = cv.inRange(hsv, self.red_lower1, self.red_upper1)
         mask2 = cv.inRange(hsv, self.red_lower2, self.red_upper2)
         mask = cv.bitwise_or(mask1, mask2)
 
-        kernel = np.ones((self.cfg.MORPH_K, self.cfg.MORPH_K), np.uint8)
-        mask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel, iterations=1)
-        mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel, iterations=2)
-
-        angle_deg = None
-        offset_px = None
-        edges = None
+        mask = cv.morphologyEx(mask, cv.MORPH_OPEN, self._kernel, iterations=1)
+        mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, self._kernel, iterations=2)
 
         if cv.countNonZero(mask) > self.cfg.MIN_MASK_AREA:
             edges = cv.Canny(mask, self.cfg.CANNY1, self.cfg.CANNY2)
@@ -48,7 +59,7 @@ class RedLineDetector:
             lines = cv.HoughLinesP(
                 edges,
                 rho=1,
-                theta=np.pi / 180,
+                theta=np.pi / 180.0,
                 threshold=self.cfg.HOUGH_THRESH,
                 minLineLength=self.cfg.MIN_LINE_LEN,
                 maxLineGap=self.cfg.MAX_LINE_GAP
@@ -58,23 +69,20 @@ class RedLineDetector:
                 sum_w = 0.0
                 sum_sin = 0.0
                 sum_cos = 0.0
-
-                y_ref = int(self.cfg.YREF_FRAC * h)
                 sum_xref = 0.0
                 sum_wxref = 0.0
 
-                for (x1, y1, x2, y2) in lines[:, 0, :]:
+                for x1, y1, x2, y2 in lines[:, 0, :]:
                     if y2 < y1:
                         x1, y1, x2, y2 = x2, y2, x1, y1
 
-                    dx = x2 - x1
-                    dy = y2 - y1
+                    dx = float(x2 - x1)
+                    dy = float(y2 - y1)
                     length = math.hypot(dx, dy)
                     if length < 1e-6:
                         continue
 
                     ang_from_vert = wrap_deg(math.degrees(math.atan2(dx, dy)))
-
                     if abs(ang_from_vert) > self.cfg.MAX_ABS_DEG_FROM_VERTICAL:
                         continue
 
@@ -87,18 +95,18 @@ class RedLineDetector:
 
                     if abs(dy) > 1e-6:
                         t = (y_ref - y1) / dy
-                        x_at_y = x1 + t * dx
                         if -0.25 <= t <= 1.25:
+                            x_at_y = float(x1) + t * dx
                             sum_xref += wgt * x_at_y
                             sum_wxref += wgt
 
                     if self.cfg.DEBUG_DRAW:
                         cv.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-                if sum_w > 0:
+                if sum_w > 0.0:
                     angle_deg = math.degrees(math.atan2(sum_sin, sum_cos))
 
-                if sum_wxref > 0:
+                if sum_wxref > 0.0:
                     x_ref = sum_xref / sum_wxref
                     offset_px = int(round(x_ref - cx_img))
 
