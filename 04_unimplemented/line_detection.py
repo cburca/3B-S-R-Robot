@@ -2,10 +2,11 @@ import cv2 as cv
 import numpy as np
 import math
 
+
 def wrap_deg(a):
-    """Wrap angle to (-180, 180)."""
     a = (a + 180.0) % 360.0 - 180.0
     return a
+
 
 def detect_red_line():
     cap = cv.VideoCapture(0)
@@ -13,25 +14,28 @@ def detect_red_line():
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv.CAP_PROP_FPS, 30)
 
-    # Red in HSV (two ranges because red wraps hue)
     red_lower1 = np.array([0, 100, 100])
     red_upper1 = np.array([10, 255, 255])
     red_lower2 = np.array([160, 100, 100])
     red_upper2 = np.array([180, 255, 255])
 
-    # Tuning knobs
-    MIN_MASK_AREA = 400          # ignore tiny red blobs
-    CANNY1, CANNY2 = 25, 175     # edge detection thresholds
-    HOUGH_THRESH = 30            # votes needed
-    MIN_LINE_LEN = 25            # pixels
-    MAX_LINE_GAP = 10            # pixels
+    MIN_MASK_AREA = 400
+    CANNY1, CANNY2 = 25, 175
+    HOUGH_THRESH = 30
+    MIN_LINE_LEN = 25
+    MAX_LINE_GAP = 10
+
+    MAX_ABS_DEG_FROM_VERTICAL = 45.0
 
     while True:
         ret, frame = cap.read()
         if not ret:
             break
 
-        frame = cv.resize(frame, (480, 480))
+        h0, w0 = frame.shape[:2]
+        if w0 != 640 or h0 != 480:
+            frame = cv.resize(frame, (640, 480))
+
         h, w = frame.shape[:2]
         cx_img = w // 2
 
@@ -46,12 +50,11 @@ def detect_red_line():
 
         angle_deg = None
         offset_px = None
+        edges = None
 
         if cv.countNonZero(mask) > MIN_MASK_AREA:
-            # Edge detection on the mask
             edges = cv.Canny(mask, CANNY1, CANNY2)
 
-            # Probabilistic Hough -> line segments
             lines = cv.HoughLinesP(
                 edges,
                 rho=1,
@@ -66,43 +69,40 @@ def detect_red_line():
                 sum_sin = 0.0
                 sum_cos = 0.0
 
-                # Also estimate lateral offset by averaging x-intercept at a chosen y (near bottom)
                 y_ref = int(0.85 * h)
                 sum_xref = 0.0
                 sum_wxref = 0.0
 
-                MAX_ABS_DEG_FROM_VERTICAL = 90.0  # keep only lines within ±45° of vertical
-                
-            for (x1, y1, x2, y2) in lines[:, 0, :]:
-                if y2 < y1:
-                    x1, y1, x2, y2 = x2, y2, x1, y1
+                for (x1, y1, x2, y2) in lines[:, 0, :]:
+                    if y2 < y1:
+                        x1, y1, x2, y2 = x2, y2, x1, y1
 
-                dx = x2 - x1
-                dy = y2 - y1
-                length = math.hypot(dx, dy)
-                if length < 1e-6:
-                    continue
+                    dx = x2 - x1
+                    dy = y2 - y1
+                    length = math.hypot(dx, dy)
+                    if length < 1e-6:
+                        continue
 
-                ang_from_vert = math.degrees(math.atan2(dx, dy))  # robust to endpoint flip now
+                    ang_from_vert = math.degrees(math.atan2(dx, dy))
+                    ang_from_vert = wrap_deg(ang_from_vert)
 
-                MAX_ABS_DEG_FROM_VERTICAL = 45.0
-                if abs(ang_from_vert) > MAX_ABS_DEG_FROM_VERTICAL:
-                    continue
+                    if abs(ang_from_vert) > MAX_ABS_DEG_FROM_VERTICAL:
+                        continue
 
-                wgt = length
-                sum_w += wgt
-                rad = math.radians(ang_from_vert)
-                sum_cos += wgt * math.cos(rad)
-                sum_sin += wgt * math.sin(rad)
+                    wgt = length
+                    sum_w += wgt
+                    rad = math.radians(ang_from_vert)
+                    sum_cos += wgt * math.cos(rad)
+                    sum_sin += wgt * math.sin(rad)
 
-                if abs(dy) > 1e-6:
-                    t = (y_ref - y1) / dy
-                    x_at_y = x1 + t * dx
-                    if -0.25 <= t <= 1.25:
-                        sum_xref += wgt * x_at_y
-                        sum_wxref += wgt
+                    if abs(dy) > 1e-6:
+                        t = (y_ref - y1) / dy
+                        x_at_y = x1 + t * dx
+                        if -0.25 <= t <= 1.25:
+                            sum_xref += wgt * x_at_y
+                            sum_wxref += wgt
 
-                cv.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
                 if sum_w > 0:
                     angle_deg = math.degrees(math.atan2(sum_sin, sum_cos))
@@ -111,19 +111,11 @@ def detect_red_line():
                     x_ref = sum_xref / sum_wxref
                     offset_px = int(round(x_ref - cx_img))
 
-                    # draw reference point + centerline
                     cv.circle(frame, (int(round(x_ref)), y_ref), 6, (255, 255, 255), -1)
                     cv.line(frame, (cx_img, 0), (cx_img, h - 1), (255, 255, 255), 1)
 
-                # Show y_ref line
                 cv.line(frame, (0, y_ref), (w - 1, y_ref), (255, 255, 255), 1)
 
-            else:
-                edges = None
-        else:
-            edges = None
-
-        # HUD text
         if angle_deg is not None:
             cv.putText(frame, f"Heading error (deg): {angle_deg:+.1f}",
                        (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
@@ -144,6 +136,7 @@ def detect_red_line():
 
     cap.release()
     cv.destroyAllWindows()
+
 
 if __name__ == "__main__":
     detect_red_line()
