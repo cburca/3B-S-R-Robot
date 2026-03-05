@@ -28,7 +28,7 @@ class Config:
     # Robot Geometry - TO BE UPDATED
     r = 0.04
     L = 0.20
-    vmax = 0.25
+    vmax = 0.05
     wmax = vmax / r  # 6.25 rad/s 
 
     # Timing Rates
