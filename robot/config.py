@@ -50,8 +50,8 @@ class Config:
     V_MIN = 0.05
 
     # encoder counts per revolution
-    ENCODER_CPR = 2797
+    ENCODER_CPR = 2800
 
     # USB Serial Params
-    SERIAL_PORT = 'COM3'  # update when applicable
+    SERIAL_PORT = 'dev/ttyACM0'  # update when applicable
     BAUD_RATE = 115200 # update to real value
