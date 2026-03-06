@@ -22,8 +22,8 @@ class Config:
     YREF_FRAC = 0.85
     MAX_ABS_DEG_FROM_VERTICAL = 60.0
 
-    DEBUG_SHOW = True
-    DEBUG_DRAW = True
+    DEBUG_SHOW = False
+    DEBUG_DRAW = False
 
     # Robot Geometry - TO BE UPDATED
     r = 0.04
