@@ -91,6 +91,9 @@ def main():
     io.read()  # optional: consume "OK E ..."
 
     # inital states
+    halted = False
+    halted_prev = False
+    
     yaw_cmd = 0.0         # yaw rate command (rad/s)
     v_cmd = 0.0           # m/s
     theta_ref_deg = 0.0   # follow vertical
@@ -106,12 +109,23 @@ def main():
             # outer
             if now >= t_next_outer:
                 ret, frame = cap.read()
-                if ret:
+                if not ret:
+                    halted = True
+                    yaw_cmd = 0.0
+                    v_cmd = 0.0
+                else:
                     theta_deg, offset_px, valid, dbg = vision.process(frame)
 
-                    if valid:
+                    if not valid:
+                        halted = True
+                        yaw_cmd = 0.0
+                        v_cmd = 0.0
+                    else:
+                        halted = False
+
                         theta_err_rad = math.radians(theta_ref_deg - theta_deg)
                         yaw_target = outer.step(0.0, -theta_err_rad)
+
                         if yaw_slew > 0.0:
                             yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
                         else:
@@ -121,14 +135,7 @@ def main():
                         v_target = cfg.vmax * speed_scale
                         v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
                         v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
-                    else:
-                        if yaw_slew > 0.0:
-                            yaw_cmd = slew(yaw_cmd, 0.0, yaw_slew, yaw_slew, cfg.DT_OUTER)
-                        else:
-                            yaw_cmd = 0.0
-                        v_cmd = slew(v_cmd, 0.0, v_slew_up, v_slew_down, cfg.DT_OUTER)
 
-                    # debug display (optional)
                     if cfg.DEBUG_SHOW and dbg:
                         cv.imshow("mask", dbg["mask"])
                         if dbg["edges"] is not None:
@@ -140,19 +147,26 @@ def main():
                 while t_next_outer <= now:
                     t_next_outer += cfg.DT_OUTER
 
-            # inner
+           # inner
             if now >= t_next_inner:
-                w_l, w_r = mixer.wheel_speed_setpoints(v_cmd, yaw_cmd)
+                if halted:
+                    if not halted_prev:
+                        io.write("S\n")
+                    send_vel(io, 0.0, 0.0)
+                else:
+                    w_l, w_r = mixer.wheel_speed_setpoints(v_cmd, yaw_cmd)
 
-                w_peak = max(abs(w_l), abs(w_r))
-                if w_peak > w_lim and w_peak > 1e-6:
-                    s = w_lim / w_peak
-                    w_l *= s
-                    w_r *= s
+                    w_peak = max(abs(w_l), abs(w_r))
+                    if w_peak > w_lim and w_peak > 1e-6:
+                        s = w_lim / w_peak
+                        w_l *= s
+                        w_r *= s
 
-                l_cps = omega_to_ticks_per_sec(w_l, cfg.ENCODER_CPR)
-                r_cps = omega_to_ticks_per_sec(w_r, cfg.ENCODER_CPR)
-                send_vel(io, l_cps, r_cps)
+                    l_cps = omega_to_ticks_per_sec(w_l, cfg.ENCODER_CPR)
+                    r_cps = omega_to_ticks_per_sec(w_r, cfg.ENCODER_CPR)
+                    send_vel(io, l_cps, r_cps)
+
+                halted_prev = halted
 
                 ack = io.read()
                 if ack and ack.startswith("ERR"):
