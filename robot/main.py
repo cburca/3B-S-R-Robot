@@ -101,18 +101,23 @@ def main():
     # timing
     t_next_inner = time.perf_counter()
     t_next_outer = time.perf_counter()
+    
+    t_start = time.perf_counter()
 
     try:
         while True:
             now = time.perf_counter()
-
+            if now - t_start >= MAX_RUN_S:
+                break
+            
             # outer
             if now >= t_next_outer:
                 ret, frame = cap.read()
                 if not ret:
-                    halted = True
-                    yaw_cmd = 0.0
-                    v_cmd = 0.0
+                    valid = False
+                    theta_deg = None
+                    offset_px = None
+                    dbg = None
                 else:
                     theta_deg, offset_px, valid, dbg = vision.process(frame)
 
