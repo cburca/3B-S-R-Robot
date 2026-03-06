@@ -13,6 +13,16 @@ def clamp(x, lo, hi):
     return lo if x < lo else hi if x > hi else x
 
 
+def slew(prev, target, rate_up, rate_down, dt):
+    dv = target - prev
+    lim = (rate_up if dv > 0.0 else rate_down) * dt
+    if dv > lim:
+        return prev + lim
+    if dv < -lim:
+        return prev - lim
+    return target
+
+
 def omega_to_ticks_per_sec(omega_rad_s, cpr):
     return omega_rad_s * (cpr / (2.0 * math.pi))
 
@@ -32,6 +42,15 @@ def send_vel(io, l_tps, r_tps):
 
 def main():
     cfg = Config()
+
+    port = getattr(cfg, "SERIAL_PORT", "")
+    if isinstance(port, str) and port and not port.startswith("/") and "tty" in port:
+        cfg.SERIAL_PORT = "/" + port
+
+    v_slew_up = float(getattr(cfg, "V_SLEW_UP", 0.25))
+    v_slew_down = float(getattr(cfg, "V_SLEW_DOWN", 0.75))
+    yaw_slew = float(getattr(cfg, "YAW_SLEW", 0.0))
+    w_lim = float(getattr(cfg, "WHEEL_OMEGA_LIMIT", getattr(cfg, "wmax", cfg.vmax / cfg.r)))
 
     # camera
     cap = cv.VideoCapture(cfg.CAM_INDEX)
@@ -70,7 +89,7 @@ def main():
 
     io.write("E 1\n")
     io.read()  # optional: consume "OK E ..."
-    
+
     # inital states
     yaw_cmd = 0.0         # yaw rate command (rad/s)
     v_cmd = 0.0           # m/s
@@ -92,13 +111,22 @@ def main():
 
                     if valid:
                         theta_err_rad = math.radians(theta_ref_deg - theta_deg)
-                        yaw_cmd = outer.step(0.0, -theta_err_rad)
+                        yaw_target = outer.step(0.0, -theta_err_rad)
+                        if yaw_slew > 0.0:
+                            yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
+                        else:
+                            yaw_cmd = yaw_target
 
-                        v_cmd = cfg.vmax * (1.0 - cfg.KV * abs(yaw_cmd))
-                        v_cmd = clamp(v_cmd, cfg.V_MIN, cfg.vmax)
+                        speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
+                        v_target = cfg.vmax * speed_scale
+                        v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
+                        v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
                     else:
-                        yaw_cmd = 0.0
-                        v_cmd = 0.0
+                        if yaw_slew > 0.0:
+                            yaw_cmd = slew(yaw_cmd, 0.0, yaw_slew, yaw_slew, cfg.DT_OUTER)
+                        else:
+                            yaw_cmd = 0.0
+                        v_cmd = slew(v_cmd, 0.0, v_slew_up, v_slew_down, cfg.DT_OUTER)
 
                     # debug display (optional)
                     if cfg.DEBUG_SHOW and dbg:
@@ -115,9 +143,17 @@ def main():
             # inner
             if now >= t_next_inner:
                 w_l, w_r = mixer.wheel_speed_setpoints(v_cmd, yaw_cmd)
+
+                w_peak = max(abs(w_l), abs(w_r))
+                if w_peak > w_lim and w_peak > 1e-6:
+                    s = w_lim / w_peak
+                    w_l *= s
+                    w_r *= s
+
                 l_cps = omega_to_ticks_per_sec(w_l, cfg.ENCODER_CPR)
                 r_cps = omega_to_ticks_per_sec(w_r, cfg.ENCODER_CPR)
                 send_vel(io, l_cps, r_cps)
+
                 ack = io.read()
                 if ack and ack.startswith("ERR"):
                     print("ARDUINO:", ack)

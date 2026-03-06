@@ -46,8 +46,8 @@ class Config:
     KI_W = 11.97
     U_PWM_LIMIT = 1.0 # normalized PWM
 
-    KV = 0.6  # TO BE TUNED: v_cmd = vmax (1 - KV*|yaw_cmd|)
-    V_MIN = 0.05
+    KV = 0.2  # TO BE TUNED: v_cmd = vmax (1 - KV*|yaw_cmd|)
+    V_MIN = 0.01
 
     # encoder counts per revolution
     ENCODER_CPR = 2800
