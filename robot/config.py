@@ -38,7 +38,7 @@ class Config:
     MAX_RUN_S = 5.0
 
     # Outer PD Gains - TO BE UPDATED
-    KP_THETA = 299.30
+    KP_THETA = 100
     KD_THETA = 15.998
     U_YAW_LIMIT = 1.0 # normalized yaw actuation command
 
