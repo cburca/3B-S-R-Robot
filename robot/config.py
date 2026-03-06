@@ -20,7 +20,7 @@ class Config:
     MAX_LINE_GAP = 10
     MORPH_K = 5
     YREF_FRAC = 0.85
-    MAX_ABS_DEG_FROM_VERTICAL = 90.0 
+    MAX_ABS_DEG_FROM_VERTICAL = 60.0
 
     DEBUG_SHOW = True
     DEBUG_DRAW = True

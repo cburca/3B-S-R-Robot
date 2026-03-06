@@ -115,7 +115,7 @@ class RedLineDetector:
                         cv.line(frame, (cx_img, 0), (cx_img, h - 1), (255, 255, 255), 1)
                         cv.line(frame, (0, y_ref), (w - 1, y_ref), (255, 255, 255), 1)
 
-        valid = (angle_deg is not None)
+        valid = (angle_deg is not None) and (offset_px is not None)
 
         debug = {}
         if self.cfg.DEBUG_SHOW:

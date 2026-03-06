@@ -68,7 +68,7 @@ def main():
     io = USBSerial(cfg.SERIAL_PORT, baudrate=cfg.BAUD_RATE, timeout=0.10)
     io.connect()
 
-    time.sleep(2.0)  # Arduino resets on port open
+    time.sleep(10.0)  # Arduino resets on port open
 
     try:
         io.ser.reset_input_buffer()
