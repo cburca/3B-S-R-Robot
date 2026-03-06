@@ -35,7 +35,7 @@ class Config:
     DT_OUTER = 1.0 / CAM_FPS # ~0.033s
     INNER_HZ = 150.0
     DT_INNER = 1.0 / INNER_HZ
-    MAX_RUN_S = 15.0
+    MAX_RUN_S = 5.0
 
     # Outer PD Gains - TO BE UPDATED
     KP_THETA = 299.30
