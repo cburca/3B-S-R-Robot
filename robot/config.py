@@ -1,13 +1,42 @@
 class Config:
-    # Camera params
     CAM_INDEX = 0
     CAM_W = 640
     CAM_H = 480
     CAM_FPS = 30.0
-    VISION_W = 480
-    VISION_H = 480
 
-    # Vision Thresholds
+    SERIAL_PORT = "/dev/ttyACM0"
+    BAUD = 115200
+    SERIAL_TIMEOUT = 0.1
+    SERIAL_HANDSHAKE = True
+
+    SERIAL_WAIT_TIMEOUT = 15.0
+    SERIAL_CONNECT_RETRIES = 10
+    SERIAL_RETRY_DELAY = 1.0
+    ARDUINO_RESET_DELAY = 2.0
+
+    CAM_CONNECT_RETRIES = 10
+    CAM_RETRY_DELAY = 1.0
+
+    MAIN_RETRY_DELAY = 2.0
+
+    LOOP_HZ = 20.0
+    RUN_TIME_S = 10.0
+
+    KP_HEADING = 0.0
+    KD_HEADING = 0.0
+    YAW_RATE_MAX = 2.0
+
+    V_MAX = 0.25
+    V_MIN = 0.0
+    KV = 0.25
+
+    WHEEL_RADIUS_M = 0.03
+    TRACK_WIDTH_M = 0.14
+    ENC_CPR = 2797
+    MAX_TPS = 2000.0
+
+    SHOW_DEBUG = True
+
     RED_LOWER1 = (0, 100, 100)
     RED_UPPER1 = (10, 255, 255)
     RED_LOWER2 = (160, 100, 100)
