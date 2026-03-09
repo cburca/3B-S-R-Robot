@@ -23,10 +23,6 @@ def slew(prev, target, rate_up, rate_down, dt):
     return target
 
 
-def omega_to_ticks_per_sec(omega_rad_s, cpr):
-    return omega_rad_s * (cpr / (2.0 * math.pi))
-
-
 def send_vel(io, l_tps, r_tps):
     if hasattr(io, "set_vel"):
         io.set_vel(l_tps, r_tps)
@@ -168,8 +164,8 @@ def main():
                         w_l *= s
                         w_r *= s
 
-                    l_cps = omega_to_ticks_per_sec(w_l, cfg.ENCODER_CPR)
-                    r_cps = omega_to_ticks_per_sec(w_r, cfg.ENCODER_CPR)
+                    l_cps = w_l
+                    r_cps = w_r
                     send_vel(io, l_cps, r_cps)
 
                 halted_prev = halted
