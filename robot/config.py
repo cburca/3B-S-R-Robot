@@ -28,18 +28,18 @@ class Config:
     # Robot Geometry - TO BE UPDATED
     r = 0.04
     L = 0.20
-    vmax = 0.05
+    vmax = 0.2
     wmax = vmax / r  # 6.25 rad/s 
 
     # Timing Rates
     DT_OUTER = 1.0 / CAM_FPS # ~0.033s
     INNER_HZ = 150.0
     DT_INNER = 1.0 / INNER_HZ
-    MAX_RUN_S = 5.0
+    MAX_RUN_S = 10.0
 
     # Outer PD Gains - TO BE UPDATED
-    KP_THETA = 100
-    KD_THETA = 15.998
+    KP_THETA = 50
+    KD_THETA = 7.5
     U_YAW_LIMIT = 1.0 # normalized yaw actuation command
 
     # inner PI gains - TO BE UPDATED
@@ -47,11 +47,11 @@ class Config:
     KI_W = 11.97
     U_PWM_LIMIT = 1.0 # normalized PWM
 
-    KV = 0.2  # TO BE TUNED: v_cmd = vmax (1 - KV*|yaw_cmd|)
+    KV = 0.1  # TO BE TUNED: v_cmd = vmax (1 - KV*|yaw_cmd|)
     V_MIN = 0.01
 
     # encoder counts per revolution
-    ENCODER_CPR = 2800
+    ENCODER_CPR = 2797
 
     # USB Serial Params
     SERIAL_PORT = 'dev/ttyACM0'  # update when applicable

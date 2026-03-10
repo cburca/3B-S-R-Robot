@@ -47,7 +47,7 @@ def main():
     v_slew_down = float(getattr(cfg, "V_SLEW_DOWN", 0.75))
     yaw_slew = float(getattr(cfg, "YAW_SLEW", 0.0))
     w_lim = float(getattr(cfg, "WHEEL_OMEGA_LIMIT", getattr(cfg, "wmax", cfg.vmax / cfg.r)))
-
+    print("max angular vel is " + str(w_lim))
     # camera
     cap = cv.VideoCapture(cfg.CAM_INDEX)
     cap.set(cv.CAP_PROP_FRAME_WIDTH, cfg.CAM_W)
@@ -60,11 +60,11 @@ def main():
 
     # Outer PD works in radians, so we’ll convert theta_deg->rad before stepping
     outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
-
+    
     io = USBSerial(cfg.SERIAL_PORT, baudrate=cfg.BAUD_RATE, timeout=0.10)
     io.connect()
 
-    time.sleep(10.0)  # Arduino resets on port open
+    time.sleep(2.0)  # Arduino resets on port open
 
     try:
         io.ser.reset_input_buffer()
@@ -79,6 +79,7 @@ def main():
         r = io.read()
         if r == "SEVEN":
             ok = True
+            print("handshake completed")
             break
     if not ok:
         raise RuntimeError("Handshake failed")
@@ -91,7 +92,7 @@ def main():
     halted_prev = False
     
     yaw_cmd = 0.0         # yaw rate command (rad/s)
-    v_cmd = 0.0           # m/s
+    v_cmd = 0.2           # m/s
     theta_ref_deg = 0.0   # follow vertical
 
     # timing
@@ -135,6 +136,7 @@ def main():
 
                         speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
                         v_target = cfg.vmax * speed_scale
+                        print("V_TGT: " + str(v_target))
                         v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
                         v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
 
@@ -155,6 +157,7 @@ def main():
                     if not halted_prev:
                         io.write("S\n")
                     send_vel(io, 0.0, 0.0)
+                    print("halted")
                 else:
                     w_l, w_r = mixer.wheel_speed_setpoints(v_cmd, yaw_cmd)
 
@@ -164,10 +167,10 @@ def main():
                         w_l *= s
                         w_r *= s
 
-                    l_cps = w_l
-                    r_cps = w_r
+                    l_cps = w_l * (cfg.ENCODER_CPR / 6.28)
+                    r_cps = w_r * (cfg.ENCODER_CPR / 6.28)
                     send_vel(io, l_cps, r_cps)
-
+                    print("left motor speed: " + str(w_l) + " | right motor speed: " + str(w_r) + " | V_CMD: " + str(v_cmd))
                 halted_prev = halted
 
                 ack = io.read()
