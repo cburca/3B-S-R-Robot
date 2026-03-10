@@ -36,6 +36,7 @@ class Config:
     INNER_HZ = 150.0
     DT_INNER = 1.0 / INNER_HZ
     MAX_RUN_S = 10.0
+    LINE_LOST_TIMEOUT = 2.0
 
     # Outer PD Gains - TO BE UPDATED
     KP_THETA = 50
