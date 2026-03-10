@@ -4,7 +4,8 @@ Motors::Motors() {}
 
 void Motors::begin(uint8_t lFwdPwm, uint8_t lRevPwm,
                    uint8_t rFwdPwm, uint8_t rRevPwm,
-                   uint8_t enablePin,
+                   uint8_t enablePinL,
+                   uint8_t enablePinR,
                    bool enableActiveHigh) {
   _L.fwd = lFwdPwm; _L.rev = lRevPwm;
   _R.fwd = rFwdPwm; _R.rev = rRevPwm;
@@ -14,25 +15,19 @@ void Motors::begin(uint8_t lFwdPwm, uint8_t lRevPwm,
   pinMode(_R.fwd, OUTPUT);
   pinMode(_R.rev, OUTPUT);
 
-  // Default everything to stopped
   analogWrite(_L.fwd, 0);
   analogWrite(_L.rev, 0);
   analogWrite(_R.fwd, 0);
   analogWrite(_R.rev, 0);
 
-  _enPin = enablePin;
+  _enPinL = enablePinL;
+  _enPinR = enablePinR;
   _enActiveHigh = enableActiveHigh;
-  _hasEnable = (_enPin != 255);
 
-  if (_hasEnable) {
-    pinMode(_enPin, OUTPUT);
-    // Start enabled by default
-    enable();
-  }
-}
+  if (_enPinL != 255) pinMode(_enPinL, OUTPUT);
+  if (_enPinR != 255) pinMode(_enPinR, OUTPUT);
 
-void Motors::setStopMode(StopMode mode) {
-  _stopMode = mode;
+  enable();
 }
 
 void Motors::setMaxAbsCmd(uint8_t maxAbs) {
@@ -53,23 +48,8 @@ uint8_t Motors::toPwm(int16_t mag) {
 }
 
 void Motors::writeStop(const Chan& ch) {
-  if (_stopMode == StopMode::Coast) {
-    analogWrite(ch.fwd, 0);
-    analogWrite(ch.rev, 0);
-    return;
-  }
-
-  // Brake mode is driver-dependent.
-  // Many dual-PWM drivers either:
-  //  - brake with BOTH inputs HIGH (digital), or
-  //  - brake with BOTH PWM at 255, or
-  //  - do NOT support braking in dual-PWM mode at all.
-  //
-  // You MUST confirm your driver’s datasheet before using Brake.
-  // This implementation uses "both PWM = 255" as a generic guess.
-  // If your driver does not support it, setStopMode(Coast) instead.
-  analogWrite(ch.fwd, 255);
-  analogWrite(ch.rev, 255);
+  analogWrite(ch.fwd, 0);
+  analogWrite(ch.rev, 0);
 }
 
 void Motors::writeChan(const Chan& ch, int16_t cmd) {
@@ -80,13 +60,12 @@ void Motors::writeChan(const Chan& ch, int16_t cmd) {
     return;
   }
 
-  // Safety: only drive one direction PWM at a time.
   const uint8_t pwm = toPwm(cmd);
 
   if (cmd > 0) {
     analogWrite(ch.fwd, pwm);
     analogWrite(ch.rev, 0);
-  } else { // cmd < 0
+  } else {
     analogWrite(ch.fwd, 0);
     analogWrite(ch.rev, pwm);
   }
@@ -124,18 +103,20 @@ void Motors::setNorm(float leftU, float rightU) {
   setRightNorm(rightU);
 }
 
+void Motors::writeEnable(bool on) {
+  const uint8_t val = (on ? (_enActiveHigh ? HIGH : LOW)
+                          : (_enActiveHigh ? LOW : HIGH));
+  if (_enPinL != 255) digitalWrite(_enPinL, val);
+  if (_enPinR != 255) digitalWrite(_enPinR, val);
+}
+
 void Motors::enable() {
-  if (!_hasEnable) return;
-  digitalWrite(_enPin, _enActiveHigh ? HIGH : LOW);
+  writeEnable(true);
 }
 
 void Motors::disable() {
-  if (!_hasEnable) return;
-  digitalWrite(_enPin, _enActiveHigh ? LOW : HIGH);
-
-  // Also force outputs low (extra safety)
-  analogWrite(_L.fwd, 0); analogWrite(_L.rev, 0);
-  analogWrite(_R.fwd, 0); analogWrite(_R.rev, 0);
+  stop();
+  writeEnable(false);
 }
 
 void Motors::stop() {

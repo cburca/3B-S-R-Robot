@@ -21,8 +21,9 @@ static const uint8_t L_REV_PWM = 6;
 static const uint8_t R_FWD_PWM = 9;
 static const uint8_t R_REV_PWM = 10;
 
-// motor driver enable pin.
-static const uint8_t MOTOR_EN_PIN = 22;
+// motor dirver enable pins
+static const uint8_t MOTOR_EN_PIN_L = 22;   // left channel enable
+static const uint8_t MOTOR_EN_PIN_R = 24;  // right channel enable
 static const bool    MOTOR_EN_ACTIVE_HIGH = true;
 
 // limit max PWM magnitude (safety / tuning)
