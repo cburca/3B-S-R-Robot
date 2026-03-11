@@ -44,6 +44,6 @@ static const int8_t ENC_R_SIGN = +1;
 static const float CTRL_HZ = 100.0f;
 
 // PID Gains - TO BE UPDATED
-static const float KP = 1.0f;
-static const float KI = 0.1f;
+static const float KP = 0.008f;
+static const float KI = 0.020f;
 static const float KD = 0.01f;
