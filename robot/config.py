@@ -42,7 +42,7 @@ class Config:
     YAW_SLEW = 0.0
     WHEEL_OMEGA_LIMIT = 10.0
     
-    OFFSET_TO_ASIN_GAIN = 0.0001
+    OFFSET_TO_ANGLE_GAIN = 0.001
     # Outer PD Gains - TO BE UPDATED
     KP_THETA = 11
     KD_THETA = 0.5
