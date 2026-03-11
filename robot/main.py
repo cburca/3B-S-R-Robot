@@ -89,7 +89,8 @@ def main():
 
     yaw_cmd = 0.0
     v_cmd = 0.2
-    theta_ref_deg = 0.0
+    theta_ref_rad = 0.0
+    theta_rad = 0.0
 
     line_lost_since = None
 
@@ -119,8 +120,12 @@ def main():
                     line_lost_since = None
                     halted = False
 
-                    theta_err_rad = math.radians(theta_ref_deg - theta_deg)
-                    yaw_target = outer.step(0.0, theta_err_rad)
+                    theta_rad = math.radians(theta_deg)
+                    theta_ref_rad = math.asin(
+                        clamp(cfg.OFFSET_TO_ANGLE_GAIN * offset_px, -1.0, 1.0)
+                    )
+
+                    yaw_target = outer.step(theta_ref_rad, theta_rad)
 
                     if yaw_slew > 0.0:
                         yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
@@ -173,7 +178,13 @@ def main():
                     l_cps = w_l * (cfg.ENCODER_CPR / (2.0 * math.pi))
                     r_cps = w_r * (cfg.ENCODER_CPR / (2.0 * math.pi))
                     send_vel(io, l_cps, r_cps)
-                    print("left motor speed: " + str(w_l) + " | right motor speed: " + str(w_r) + " | V_CMD: " + str(v_cmd))
+                    print(
+                        "left motor speed: " + str(w_l)
+                        + " | right motor speed: " + str(w_r)
+                        + " | V_CMD: " + str(v_cmd)
+                        + " | theta_ref_rad: " + str(theta_ref_rad)
+                        + " | theta_rad: " + str(theta_rad)
+                    )
 
                 halted_prev = halted
 
