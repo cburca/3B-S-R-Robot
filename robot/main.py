@@ -120,7 +120,7 @@ def main():
                     halted = False
 
                     theta_err_rad = math.radians(theta_ref_deg - theta_deg)
-                    yaw_target = outer.step(0.0, -theta_err_rad)
+                    yaw_target = outer.step(0.0, theta_err_rad)
 
                     if yaw_slew > 0.0:
                         yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
