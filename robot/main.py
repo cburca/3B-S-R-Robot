@@ -100,6 +100,7 @@ def main():
     try:
         while True:
             now = time.perf_counter()
+            print("TIME: " + str(now))
             if now - t_start >= cfg.MAX_RUN_S:
                 break
 
