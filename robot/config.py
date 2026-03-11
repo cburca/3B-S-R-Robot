@@ -37,10 +37,15 @@ class Config:
     DT_INNER = 1.0 / INNER_HZ
     MAX_RUN_S = 10.0
     LINE_LOST_TIMEOUT = 2.0
+    V_SLEW_UP = 0.25 * DT_OUTER
+    V_SLEW_DOWN = 0.75 * DT_OUTER
+    YAW_SLEW = 0.0
+    WHEEL_OMEGA_LIMIT = 10.0
+    
 
     # Outer PD Gains - TO BE UPDATED
-    KP_THETA = 50
-    KD_THETA = 7.5
+    KP_THETA = 2.0
+    KD_THETA = 0.375
     U_YAW_LIMIT = 1.0 # normalized yaw actuation command
 
     # inner PI gains - TO BE UPDATED
