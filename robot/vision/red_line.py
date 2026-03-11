@@ -104,7 +104,7 @@ class RedLineDetector:
                         cv.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
                 if sum_w > 0.0:
-                    angle_deg = math.degrees(math.atan2(sum_sin, sum_cos))
+                    angle_deg = -math.degrees(math.atan2(sum_sin, sum_cos))
 
                 if sum_wxref > 0.0:
                     x_ref = sum_xref / sum_wxref
