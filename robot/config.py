@@ -36,16 +36,16 @@ class Config:
     INNER_HZ = 150.0
     DT_INNER = 1.0 / INNER_HZ
     MAX_RUN_S = 10.0
-    LINE_LOST_TIMEOUT = 2.0
-    V_SLEW_UP = 0.25 * DT_OUTER
-    V_SLEW_DOWN = 0.75 * DT_OUTER
+    LINE_LOST_TIMEOUT = 2.5
+    V_SLEW_UP = 0.25 
+    V_SLEW_DOWN = 0.75 
     YAW_SLEW = 0.0
     WHEEL_OMEGA_LIMIT = 10.0
     
     OFFSET_TO_ANGLE_GAIN = 0.001
     # Outer PD Gains - TO BE UPDATED
-    KP_THETA = 11
-    KD_THETA = 0.5
+    KP_THETA = 2
+    KD_THETA = 0.375
     U_YAW_LIMIT = 1.0 # normalized yaw actuation command
 
     KV = 0.1  # TO BE TUNED: v_cmd = vmax (1 - KV*|yaw_cmd|)

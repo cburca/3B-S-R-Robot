@@ -101,7 +101,6 @@ def main():
     try:
         while True:
             now = time.perf_counter()
-            print("TIME: " + str(now))
             if now - t_start >= cfg.MAX_RUN_S:
                 break
 
@@ -134,7 +133,6 @@ def main():
 
                     speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
                     v_target = cfg.vmax * speed_scale
-                    print("V_TGT: " + str(v_target))
                     v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
                     v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
 
@@ -165,7 +163,6 @@ def main():
                     if not halted_prev:
                         io.write("S\n")
                     send_vel(io, 0.0, 0.0)
-                    print("halted")
                 else:
                     w_l, w_r = mixer.wheel_speed_setpoints(v_cmd, yaw_cmd)
 
