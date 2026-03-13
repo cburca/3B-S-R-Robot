@@ -15,8 +15,8 @@ class Config:
 
     MIN_MASK_AREA = 800
     CANNY1, CANNY2 = 50, 150
-    HOUGH_THRESH = 30
-    MIN_LINE_LEN = 30
+    HOUGH_THRESH = 50
+    MIN_LINE_LEN = 40
     MAX_LINE_GAP = 10
     MORPH_K = 5
     YREF_FRAC = 0.85
