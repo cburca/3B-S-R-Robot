@@ -13,10 +13,10 @@ class Config:
     RED_LOWER2 = (160, 100, 100)
     RED_UPPER2 = (180, 255, 255)
 
-    MIN_MASK_AREA = 800
+    MIN_MASK_AREA = 300
     CANNY1, CANNY2 = 50, 150
-    HOUGH_THRESH = 50
-    MIN_LINE_LEN = 40
+    HOUGH_THRESH = 30
+    MIN_LINE_LEN = 25
     MAX_LINE_GAP = 10
     MORPH_K = 5
     YREF_FRAC = 0.85
@@ -36,7 +36,7 @@ class Config:
     INNER_HZ = 150.0
     DT_INNER = 1.0 / INNER_HZ
     MAX_RUN_S = 10.0
-    LINE_LOST_TIMEOUT = 2.5
+    LINE_LOST_TIMEOUT = 1.5
     V_SLEW_UP = 0.25 
     V_SLEW_DOWN = 0.75 
     YAW_SLEW = 0.0
@@ -44,11 +44,11 @@ class Config:
     
     OFFSET_TO_ANGLE_GAIN = 0.001
     # Outer PD Gains - TO BE UPDATED
-    KP_THETA = 2
-    KD_THETA = 0.375
+    KP_THETA = 2.6
+    KD_THETA = 0.45
     U_YAW_LIMIT = 1.0 # normalized yaw actuation command
 
-    KV = 0.1  # TO BE TUNED: v_cmd = vmax (1 - KV*|yaw_cmd|)
+    KV = 0.0  # TO BE TUNED: v_cmd = vmax (1 - KV*|yaw_cmd|)
     V_MIN = 0.01
 
     # encoder counts per revolution
