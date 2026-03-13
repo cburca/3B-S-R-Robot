@@ -98,6 +98,11 @@ def main():
     t_next_outer = time.perf_counter()
     t_start = time.perf_counter()
 
+    stats_start = t_start
+    camera_query_count = 0
+    pd_update_count = 0
+    usb_send_count = 0
+
     try:
         while True:
             now = time.perf_counter()
@@ -105,6 +110,8 @@ def main():
                 break
 
             if now >= t_next_outer:
+                camera_query_count += 1
+
                 ret, frame = cap.read()
 
                 if not ret:
@@ -125,6 +132,7 @@ def main():
                     )
 
                     yaw_target = outer.step(theta_ref_rad, theta_rad)
+                    pd_update_count += 1
 
                     if yaw_slew > 0.0:
                         yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
@@ -163,6 +171,7 @@ def main():
                     if not halted_prev:
                         io.write("S\n")
                     send_vel(io, 0.0, 0.0)
+                    usb_send_count += 1
                 else:
                     w_l, w_r = mixer.wheel_speed_setpoints(v_cmd, yaw_cmd)
 
@@ -175,13 +184,7 @@ def main():
                     l_cps = w_l * (cfg.ENCODER_CPR / (2.0 * math.pi))
                     r_cps = w_r * (cfg.ENCODER_CPR / (2.0 * math.pi))
                     send_vel(io, l_cps, r_cps)
-                    print(
-                        "left motor speed: " + str(w_l)
-                        + " | right motor speed: " + str(w_r)
-                        + " | V_CMD: " + str(v_cmd)
-                        + " | theta_ref_rad: " + str(theta_ref_rad)
-                        + " | theta_rad: " + str(theta_rad)
-                    )
+                    usb_send_count += 1
 
                 halted_prev = halted
 
@@ -193,6 +196,19 @@ def main():
                     t_next_inner += cfg.DT_INNER
 
     finally:
+        total_runtime = time.perf_counter() - stats_start
+
+        if total_runtime > 0.0:
+            avg_camera_hz = camera_query_count / total_runtime
+            avg_pd_hz = pd_update_count / total_runtime
+            avg_usb_hz = usb_send_count / total_runtime
+
+            print("\n=== Runtime Frequency Summary ===")
+            print("Total runtime [s]: " + str(total_runtime))
+            print("Camera queries: " + str(camera_query_count) + " | avg Hz: " + str(avg_camera_hz))
+            print("PD updates: " + str(pd_update_count) + " | avg Hz: " + str(avg_pd_hz))
+            print("USB sends: " + str(usb_send_count) + " | avg Hz: " + str(avg_usb_hz))
+
         try:
             io.write("S\n")
             time.sleep(0.2)
