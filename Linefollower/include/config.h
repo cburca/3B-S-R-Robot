@@ -30,11 +30,11 @@ static const bool    MOTOR_EN_ACTIVE_HIGH = true;
 static const uint8_t MOTOR_MAX_ABS_CMD = 255;
 
 // ++ ENCODERS ++
-static const uint8_t ENC_L_A = 2;   // interrupt-capable
-static const uint8_t ENC_L_B = 4;
+static const uint8_t ENC_L_A = 3;   // interrupt-capable
+static const uint8_t ENC_L_B = 2;
 
-static const uint8_t ENC_R_A = 3;   // interrupt-capable
-static const uint8_t ENC_R_B = 7;
+static const uint8_t ENC_R_A = 19;   // interrupt-capable
+static const uint8_t ENC_R_B = 18;
 
 // flip if direction is inverted
 static const int8_t ENC_L_SIGN = +1;

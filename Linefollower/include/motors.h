@@ -35,7 +35,7 @@ private:
   uint8_t _enPinR = 255;
   bool _enActiveHigh = true;
 
-  uint8_t _maxAbs = 255;
+  uint8_t _maxAbs = 250;
   int16_t _lastLeft = 0;
   int16_t _lastRight = 0;
 
