@@ -1,4 +1,3 @@
-# robot/vision/red_line.py
 import cv2 as cv
 import numpy as np
 import math
@@ -104,7 +103,7 @@ class RedLineDetector:
                         cv.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
                 if sum_w > 0.0:
-                    angle_deg = math.degrees(math.atan2(sum_sin, sum_cos))
+                    angle_deg = -math.degrees(math.atan2(sum_sin, sum_cos))
 
                 if sum_wxref > 0.0:
                     x_ref = sum_xref / sum_wxref
@@ -115,7 +114,7 @@ class RedLineDetector:
                         cv.line(frame, (cx_img, 0), (cx_img, h - 1), (255, 255, 255), 1)
                         cv.line(frame, (0, y_ref), (w - 1, y_ref), (255, 255, 255), 1)
 
-        valid = (angle_deg is not None)
+        valid = (angle_deg is not None) and (offset_px is not None)
 
         debug = {}
         if self.cfg.DEBUG_SHOW:

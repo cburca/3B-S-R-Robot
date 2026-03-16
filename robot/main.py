@@ -14,8 +14,14 @@ def clamp(x, lo, hi):
     return lo if x < lo else hi if x > hi else x
 
 
-def omega_to_ticks_per_sec(omega_rad_s, cpr):
-    return omega_rad_s * (cpr / (2.0 * math.pi))
+def slew(prev, target, rate_up, rate_down, dt):
+    dv = target - prev
+    lim = (rate_up if dv > 0.0 else rate_down) * dt
+    if dv > lim:
+        return prev + lim
+    if dv < -lim:
+        return prev - lim
+    return target
 
 
 def send_vel(io, l_tps, r_tps):
@@ -183,32 +189,29 @@ def run_once(cfg):
 def main():
     cfg = Config()
 
-    port = getattr(cfg, "SERIAL_PORT", "")
-    if isinstance(port, str) and port and not port.startswith("/") and "tty" in port:
-        cfg.SERIAL_PORT = "/" + port
+    if isinstance(cfg.SERIAL_PORT, str) and cfg.SERIAL_PORT and not cfg.SERIAL_PORT.startswith("/") and "tty" in cfg.SERIAL_PORT:
+        cfg.SERIAL_PORT = "/" + cfg.SERIAL_PORT
 
-    v_slew_up = float(getattr(cfg, "V_SLEW_UP", 0.25))
-    v_slew_down = float(getattr(cfg, "V_SLEW_DOWN", 0.75))
-    yaw_slew = float(getattr(cfg, "YAW_SLEW", 0.0))
-    w_lim = float(getattr(cfg, "WHEEL_OMEGA_LIMIT", getattr(cfg, "wmax", cfg.vmax / cfg.r)))
+    v_slew_up = float(cfg.V_SLEW_UP)
+    v_slew_down = float(cfg.V_SLEW_DOWN)
+    yaw_slew = float(cfg.YAW_SLEW)
+    w_lim = float(cfg.WHEEL_OMEGA_LIMIT)
 
-    # camera
+    print("max angular vel is " + str(w_lim))
+
     cap = cv.VideoCapture(cfg.CAM_INDEX)
     cap.set(cv.CAP_PROP_FRAME_WIDTH, cfg.CAM_W)
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, cfg.CAM_H)
     cap.set(cv.CAP_PROP_FPS, cfg.CAM_FPS)
 
-    # modules
     vision = RedLineDetector(cfg)
     mixer = DiffDriveMixer(cfg.r, cfg.L)
-
-    # Outer PD works in radians, so we’ll convert theta_deg->rad before stepping
     outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
 
     io = USBSerial(cfg.SERIAL_PORT, baudrate=cfg.BAUD_RATE, timeout=0.10)
     io.connect()
 
-    time.sleep(2.0)  # Arduino resets on port open
+    time.sleep(2.0)
 
     try:
         io.ser.reset_input_buffer()
@@ -223,76 +226,102 @@ def main():
         r = io.read()
         if r == "SEVEN":
             ok = True
+            print("handshake completed")
             break
     if not ok:
         raise RuntimeError("Handshake failed")
 
     io.write("E 1\n")
-    io.read()  # optional: consume "OK E ..."
+    io.read()
 
-    # inital states
     halted = False
     halted_prev = False
-    
-    yaw_cmd = 0.0         # yaw rate command (rad/s)
-    v_cmd = 0.0           # m/s
-    theta_ref_deg = 0.0   # follow vertical
 
-    # timing
+    yaw_cmd = 0.0
+    v_cmd = 0.2
+    theta_ref_rad = 0.0
+    theta_rad = 0.0
+
+    line_lost_since = None
+
     t_next_inner = time.perf_counter()
     t_next_outer = time.perf_counter()
+    t_start = time.perf_counter()
+
+    stats_start = t_start
+    camera_query_count = 0
+    pd_update_count = 0
+    usb_send_count = 0
 
     try:
         while True:
             now = time.perf_counter()
+            if now - t_start >= cfg.MAX_RUN_S:
+                break
 
-            # outer
             if now >= t_next_outer:
+                camera_query_count += 1
+
                 ret, frame = cap.read()
+
                 if not ret:
-                    halted = True
-                    yaw_cmd = 0.0
-                    v_cmd = 0.0
+                    valid = False
+                    theta_deg = None
+                    offset_px = None
+                    dbg = None
                 else:
                     theta_deg, offset_px, valid, dbg = vision.process(frame)
 
-                    if not valid:
+                if valid:
+                    line_lost_since = None
+                    halted = False
+
+                    theta_rad = math.radians(theta_deg)
+                    theta_ref_rad = math.asin(
+                        clamp(cfg.OFFSET_TO_ANGLE_GAIN * offset_px, -1.0, 1.0)
+                    )
+
+                    yaw_target = outer.step(theta_ref_rad, theta_rad)
+                    pd_update_count += 1
+
+                    if yaw_slew > 0.0:
+                        yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
+                    else:
+                        yaw_cmd = yaw_target
+
+                    speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
+                    v_target = cfg.vmax * speed_scale
+                    v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
+                    v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
+
+                else:
+                    if line_lost_since is None:
+                        line_lost_since = now
+
+                    if now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
                         halted = True
                         yaw_cmd = 0.0
                         v_cmd = 0.0
                     else:
                         halted = False
 
-                        theta_err_rad = math.radians(theta_ref_deg - theta_deg)
-                        yaw_target = outer.step(0.0, -theta_err_rad)
-
-                        if yaw_slew > 0.0:
-                            yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
-                        else:
-                            yaw_cmd = yaw_target
-
-                        speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
-                        v_target = cfg.vmax * speed_scale
-                        v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
-                        v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
-
-                    if cfg.DEBUG_SHOW and dbg:
-                        cv.imshow("mask", dbg["mask"])
-                        if dbg["edges"] is not None:
-                            cv.imshow("edges", dbg["edges"])
-                        cv.imshow("vision", dbg["frame"])
-                        if cv.waitKey(1) & 0xFF == ord('q'):
-                            break
+                if cfg.DEBUG_SHOW and dbg:
+                    cv.imshow("mask", dbg["mask"])
+                    if dbg["edges"] is not None:
+                        cv.imshow("edges", dbg["edges"])
+                    cv.imshow("vision", dbg["frame"])
+                    if cv.waitKey(1) & 0xFF == ord('q'):
+                        break
 
                 while t_next_outer <= now:
                     t_next_outer += cfg.DT_OUTER
 
-           # inner
             if now >= t_next_inner:
                 if halted:
                     if not halted_prev:
                         io.write("S\n")
                     send_vel(io, 0.0, 0.0)
+                    usb_send_count += 1
                 else:
                     w_l, w_r = mixer.wheel_speed_setpoints(v_cmd, yaw_cmd)
 
@@ -302,9 +331,10 @@ def main():
                         w_l *= s
                         w_r *= s
 
-                    l_cps = omega_to_ticks_per_sec(w_l, cfg.ENCODER_CPR)
-                    r_cps = omega_to_ticks_per_sec(w_r, cfg.ENCODER_CPR)
+                    l_cps = w_l * (cfg.ENCODER_CPR / (2.0 * math.pi))
+                    r_cps = w_r * (cfg.ENCODER_CPR / (2.0 * math.pi))
                     send_vel(io, l_cps, r_cps)
+                    usb_send_count += 1
 
                 halted_prev = halted
 
@@ -316,7 +346,27 @@ def main():
                     t_next_inner += cfg.DT_INNER
 
     finally:
-        hard_stop()
+        total_runtime = time.perf_counter() - stats_start
+
+        if total_runtime > 0.0:
+            avg_camera_hz = camera_query_count / total_runtime
+            avg_pd_hz = pd_update_count / total_runtime
+            avg_usb_hz = usb_send_count / total_runtime
+
+            print("\n=== Runtime Frequency Summary ===")
+            print("Total runtime [s]: " + str(total_runtime))
+            print("Camera queries: " + str(camera_query_count) + " | avg Hz: " + str(avg_camera_hz))
+            print("PD updates: " + str(pd_update_count) + " | avg Hz: " + str(avg_pd_hz))
+            print("USB sends: " + str(usb_send_count) + " | avg Hz: " + str(avg_usb_hz))
+
+        try:
+            io.write("S\n")
+            time.sleep(0.2)
+            io.close()
+        except Exception:
+            pass
+        cap.release()
+        cv.destroyAllWindows()
 
 
 if __name__ == "__main__":

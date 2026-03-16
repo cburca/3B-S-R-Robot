@@ -14,15 +14,15 @@ def detect_red_line():
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv.CAP_PROP_FPS, 30)
 
-    red_lower1 = np.array([0, 100, 100])
+    red_lower1 = np.array([0, 80, 100])
     red_upper1 = np.array([10, 255, 255])
-    red_lower2 = np.array([160, 100, 100])
+    red_lower2 = np.array([160, 80, 100])
     red_upper2 = np.array([180, 255, 255])
 
     MIN_MASK_AREA = 400
     CANNY1, CANNY2 = 25, 175
-    HOUGH_THRESH = 30
-    MIN_LINE_LEN = 25
+    HOUGH_THRESH = 50
+    MIN_LINE_LEN = 40
     MAX_LINE_GAP = 10
 
     MAX_ABS_DEG_FROM_VERTICAL = 45.0

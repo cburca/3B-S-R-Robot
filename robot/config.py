@@ -42,44 +42,46 @@ class Config:
     RED_LOWER2 = (160, 100, 100)
     RED_UPPER2 = (180, 255, 255)
 
-    MIN_MASK_AREA = 800
+    MIN_MASK_AREA = 300
     CANNY1, CANNY2 = 50, 150
     HOUGH_THRESH = 30
-    MIN_LINE_LEN = 30
+    MIN_LINE_LEN = 25
     MAX_LINE_GAP = 10
     MORPH_K = 5
     YREF_FRAC = 0.85
-    MAX_ABS_DEG_FROM_VERTICAL = 90.0 
+    MAX_ABS_DEG_FROM_VERTICAL = 60.0
 
-    DEBUG_SHOW = True
-    DEBUG_DRAW = True
+    DEBUG_SHOW = False
+    DEBUG_DRAW = False
 
     # Robot Geometry - TO BE UPDATED
     r = 0.04
     L = 0.20
-    vmax = 0.05
+    vmax = 0.2
     wmax = vmax / r  # 6.25 rad/s 
 
     # Timing Rates
     DT_OUTER = 1.0 / CAM_FPS # ~0.033s
     INNER_HZ = 150.0
     DT_INNER = 1.0 / INNER_HZ
-
+    MAX_RUN_S = 10.0
+    LINE_LOST_TIMEOUT = 1.5
+    V_SLEW_UP = 0.25 
+    V_SLEW_DOWN = 0.75 
+    YAW_SLEW = 0.0
+    WHEEL_OMEGA_LIMIT = 10.0
+    
+    OFFSET_TO_ANGLE_GAIN = 0.001
     # Outer PD Gains - TO BE UPDATED
-    KP_THETA = 299.30
-    KD_THETA = 15.998
+    KP_THETA = 2.6
+    KD_THETA = 0.45
     U_YAW_LIMIT = 1.0 # normalized yaw actuation command
 
-    # inner PI gains - TO BE UPDATED
-    KP_W = 0.160
-    KI_W = 11.97
-    U_PWM_LIMIT = 1.0 # normalized PWM
-
-    KV = 0.2  # TO BE TUNED: v_cmd = vmax (1 - KV*|yaw_cmd|)
+    KV = 0.0  # TO BE TUNED: v_cmd = vmax (1 - KV*|yaw_cmd|)
     V_MIN = 0.01
 
     # encoder counts per revolution
-    ENCODER_CPR = 2800
+    ENCODER_CPR = 2797
 
     # USB Serial Params
     SERIAL_PORT = 'dev/ttyACM0'  # update when applicable
