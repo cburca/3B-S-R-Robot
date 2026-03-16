@@ -27,7 +27,7 @@ static const uint8_t MOTOR_EN_PIN_R = 24;  // right channel enable
 static const bool    MOTOR_EN_ACTIVE_HIGH = true;
 
 // limit max PWM magnitude (safety / tuning)
-static const uint8_t MOTOR_MAX_ABS_CMD = 255;
+static const uint8_t MOTOR_MAX_ABS_CMD = 250;
 
 // ++ ENCODERS ++
 static const uint8_t ENC_L_A = 3;   // interrupt-capable
@@ -40,10 +40,12 @@ static const uint8_t ENC_R_B = 18;
 static const int8_t ENC_L_SIGN = +1;
 static const int8_t ENC_R_SIGN = +1;
 
+static const int16_t ENCODER_CPR = 2797; // counts per revolution (CPR) of the encoders
+
 // ++ CONTROL ++
 static const float CTRL_HZ = 100.0f;
 
-// PID Gains - TO BE UPDATED
-static const float KP = 0.008f;
-static const float KI = 0.020f;
-static const float KD = 0.01f;
+// PID Gains
+static const float KP = 0.00194f;
+static const float KI = 0.541f;
+static const float KD = 0.0f;

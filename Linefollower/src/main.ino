@@ -26,10 +26,6 @@ static uint32_t lastCmdMs = 0;
 static char lineBuf[80];
 static uint8_t lineLen = 0;
 
-#ifndef ENCODER_CPR
-#define ENCODER_CPR 2797.0f
-#endif
-
 static constexpr float TWO_PI_F = 6.28318530718f;
 
 static inline int16_t clampI16(int32_t v, int16_t lo, int16_t hi) {
