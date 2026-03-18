@@ -67,7 +67,7 @@
 //     encoders.readCounts(startLeft, startRight);
 //     //targetCounts = computeTurnCounts(TURN_DEG, TRACK_WIDTH_M, WHEEL_RADIUS_M, CPR);
 
-//     targetCounts = 2797;
+//     targetCounts = 2200;    // 1 Revolution = 2797
 
 //     startMs = millis();
 //     lastSampleMs = startMs;
