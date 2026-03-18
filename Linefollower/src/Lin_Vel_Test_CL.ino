@@ -23,8 +23,7 @@
 // static int16_t openL = 0;
 // static int16_t openR = 0;
 
-// // // Watchdog timestamp
-// // static uint32_t lastCmdMs = 0;
+// static uint32_t lastCmdMs = 0;
 
 // static void hardStop() {
 //   // Stop motors and reset controller
@@ -33,7 +32,7 @@
 //   openL = openR = 0;
 // }
 
-// float velAt90PWM = 4.6; // <-- Get via experimentation; ** CONFIRM BEFORE USING **
+// float velAt90PWM = 5800.0f; // <-- Get via experimentation; ** CONFIRM BEFORE USING **
 
 // // Arduino setup and loop
 // void setup() {
@@ -46,10 +45,9 @@
 //   // Motors
 //   motors.begin(L_FWD_PWM, L_REV_PWM,
 //                R_FWD_PWM, R_REV_PWM,
-//                MOTOR_EN_PIN,
+//                MOTOR_EN_PIN_L,MOTOR_EN_PIN_R,
 //                MOTOR_EN_ACTIVE_HIGH);
 
-//   motors.setStopMode(Motors::StopMode::Coast);
 //   motors.setMaxAbsCmd(250);
 
 //   // Controller
