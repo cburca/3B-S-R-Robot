@@ -36,8 +36,8 @@ class RedLineDetector:
             debug = {}
             return angle_deg, offset_px, False, debug
 
-        if frame_bgr.shape[1] != self.cfg.VISION_W or frame_bgr.shape[0] != self.cfg.VISION_H:
-            frame = cv.resize(frame_bgr, (self.cfg.VISION_W, self.cfg.VISION_H))
+        if frame_bgr.shape[1] != self.cfg.CAM_W or frame_bgr.shape[0] != self.cfg.CAM_H:
+            frame = cv.resize(frame_bgr, (self.cfg.CAM_W, self.cfg.CAM_H))
         else:
             frame = frame_bgr
 
