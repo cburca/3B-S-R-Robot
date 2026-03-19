@@ -8,6 +8,8 @@ class Config:
     BAUD = 115200
     SERIAL_TIMEOUT = 0.1
     SERIAL_HANDSHAKE = True
+    VISION_W = 320
+    VISION_H = 240
 
     SERIAL_WAIT_TIMEOUT = 15.0
     SERIAL_CONNECT_RETRIES = 10
@@ -35,8 +37,6 @@ class Config:
     ENC_CPR = 2797
     MAX_TPS = 2000.0
 
-    SHOW_DEBUG = True
-
     RED_LOWER1 = (0, 100, 100)
     RED_UPPER1 = (10, 255, 255)
     RED_LOWER2 = (160, 100, 100)
@@ -51,8 +51,8 @@ class Config:
     YREF_FRAC = 0.85
     MAX_ABS_DEG_FROM_VERTICAL = 60.0
 
-    DEBUG_SHOW = False
-    DEBUG_DRAW = False
+    DEBUG_SHOW = True
+    DEBUG_DRAW = True
 
     # Robot Geometry - TO BE UPDATED
     r = 0.04

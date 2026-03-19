@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 import math
 
+from config import Config
 
 def wrap_deg(a: float) -> float:
     return (a + 180.0) % 360.0 - 180.0
@@ -114,10 +115,11 @@ class RedLineDetector:
                         cv.line(frame, (cx_img, 0), (cx_img, h - 1), (255, 255, 255), 1)
                         cv.line(frame, (0, y_ref), (w - 1, y_ref), (255, 255, 255), 1)
 
-        valid = (angle_deg is not None) and (offset_px is not None)
+        valid = (angle_deg is not None)
 
         debug = {}
         if self.cfg.DEBUG_SHOW:
             debug = {"frame": frame, "mask": mask, "edges": edges}
 
         return angle_deg, offset_px, valid, debug
+    
