@@ -117,7 +117,7 @@ class LineDetector:
             angle_deg=angle_deg,
             debug={"mask": mask, "edges": edges} if self.cfg.DEBUG_SHOW else None
         )
-class BullseyeDetector:
+class BullseyeDetector: # not done yet, WIP
     def __init__(self, cfg):
         self.cfg = cfg
         self.red_lower1 = np.array(cfg.RED_LOWER1, dtype=np.uint8)
@@ -166,6 +166,42 @@ class BullseyeDetector:
         rx, ry, rr, _ = red_circle
         bx, by, br, _ = blue_circle
         
+class SafezpneDetector:
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.green_lower = np.array(cfg.GREEN_LOWER, dtype=np.uint8)
+        self.green_upper = np.array(cfg.GREEN_UPPER, dtype=np.uint8)
+        
+        k = int(cfg.MORPH_K)
+        self.kernel = np.ones((k, k), dtype=np.uint8)
+    
+    def detect(self, ctx: FrameContext) -> DetectionResult:
+        mask = cv.inRange(ctx.hsv, self.green_lower, self.green_upper)
+        mask = cv.morphologyEx(mask, cv.MORPH_OPEN, self.kernel, iterations=1)
+        mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, self.kernel, iterations=2)
+        
+        contours, _ = cv.findContours(mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        if not contours:
+            return DetectionResult(found=False)
+        
+        c = max(contours, key=cv.contourArea)
+        area = cv.contourArea(c)
+        if area < self.cfg.MIN_SAFEZONE_AREA:
+            return DetectionResult(found=False)
+        
+        M = cv.moments(c)
+        if M["m00"] == 0:
+            return DetectionResult(found=False)
+        
+        cx = int(M["m10"] / M["m00"])
+        cy = int(M["m01"] / M["m00"])
+        
+        return DetectionResult(
+            found=True,
+            center=(cx, cy),
+            area=area,
+            debug={"mask": mask} if self.cfg.DEBUG_SHOW else None
+        )
         
 
             

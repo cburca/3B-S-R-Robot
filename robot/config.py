@@ -33,8 +33,8 @@ class Config:
     MAX_ABS_DEG_FROM_VERTICAL = 60.0
 
     # Debug
-    DEBUG_SHOW = False
-    DEBUG_DRAW = False
+    DEBUG_SHOW = True
+    DEBUG_DRAW = True
 
     # Robot Geometry
     r = 0.04
