@@ -72,7 +72,7 @@ def main():
     mixer = DiffDriveMixer(cfg.r, cfg.L)
     outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
 
-    io = USBSerial(cfg.SERIAL_PORT, baudrate=cfg.BAUD_RATE, timeout=0.10)
+    io = USBSerial(cfg.SERIAL_PORT, baudrate=cfg.BAUD_RATE, timeout=cfg.SERIAL_TIMEOUT)
     io.connect()
 
     time.sleep(2.0)

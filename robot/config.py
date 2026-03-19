@@ -13,7 +13,6 @@ class Config:
     SERIAL_PORT = 'dev/ttyACM0' # port on Raspberry PI, fwt and I'll cut you
 
     # Main Loop
-    MAIN_RETRY_DELAY = 2.0
     LOOP_HZ = 20.0
     RUN_TIME_S = 20.0
 
