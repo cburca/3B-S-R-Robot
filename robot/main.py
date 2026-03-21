@@ -146,7 +146,6 @@ def main():
                     theta_ref_rad = 0
                     # theta_ref_rad = math.asin(
                     #     clamp(cfg.OFFSET_TO_ANGLE_GAIN * offset_px, -1.0, 1.0)
-                    )
 
                     yaw_target = outer.step(theta_ref_rad, theta_rad)
                     pd_update_count += 1
