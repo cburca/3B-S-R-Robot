@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <stdlib.h>
+#include <Servo.h>
 
 #include "config.h"
 #include "motors.h"
@@ -215,6 +216,16 @@ static void pollSerial() {
 
 void setup() {
   Serial.begin(BAUD);
+
+  // Servo raise
+  static constexpr uint8_t SERVO_LIFT_PIN = 13;
+  Servo liftServo;
+  Servo syringeServo;
+  syringeServo.attach(12);
+  liftServo.attach(SERVO_LIFT_PIN);
+  syringeServo.write(100);
+  liftServo.write(150);
+
 
   encoders.begin(ENC_L_A, ENC_L_B, ENC_L_SIGN,
                  ENC_R_A, ENC_R_B, ENC_R_SIGN);
