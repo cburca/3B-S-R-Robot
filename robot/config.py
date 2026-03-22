@@ -17,13 +17,18 @@ class Config:
     RUN_TIME_S = 20.0
 
     # Color Thresholds
-    RED_LOWER1 = (0, 100, 100)
+    RED_LOWER1 = (0, 150, 70)
     RED_UPPER1 = (10, 255, 255)
-    RED_LOWER2 = (160, 100, 100)
-    RED_UPPER2 = (180, 255, 255)
+    RED_LOWER2 = (160, 150, 70)
+    RED_UPPER2 = (179, 255, 255)
+    BLUE_LOWER = (100, 150, 0)
+    BLUE_UPPER = (140, 255, 255)
+    
+    KERNEL_SIZE = 5
+    MIN_CIRCLE_AREA = 100
 
     # Image Processing
-    MIN_MASK_AREA = 300
+    MIN_MASK_AREA = 400
     CANNY1, CANNY2 = 50, 150
     HOUGH_THRESH = 30
     MIN_LINE_LEN = 25
@@ -31,6 +36,8 @@ class Config:
     MORPH_K = 5
     YREF_FRAC = 0.85
     MAX_ABS_DEG_FROM_VERTICAL = 60.0
+    BULLSEYE_ANGLE_TOL_DEG = 4.0
+    BULLSEYE_PICKUP_Y = 340
 
     # Debug
     DEBUG_SHOW = True

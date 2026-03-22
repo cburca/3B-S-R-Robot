@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import math
 import cv2 as cv
 import numpy as np
 
@@ -8,10 +9,10 @@ class DetectionResult:
     center: tuple[int, int] | None = None
     offset_px: float | None = None
     angle_deg: float | None = None
-    area: float | None = None # maybe get rid of this
+    area: float | None = None
     confidence: float | None = None
-    debug: dict | None = None
-    
+    pickup_ready: bool = False
+    debug: dict = field(default_factory=dict)
 class FrameContext:
     def __init__(self, frame):
         self.frame = frame
@@ -22,7 +23,7 @@ class FrameContext:
     def hsv(self):
         if self._hsv is None:
             self._hsv = cv.cvtColor(self.frame, cv.COLOR_BGR2HSV)
-            return self._hsv
+        return self._hsv
         
     @property
     def gray(self):
@@ -109,13 +110,42 @@ class LineDetector:
         angle_deg = -np.degrees(np.arctan2(sum_sin, sum_cos))
         x_ref = sum_xref / sum_wxref
         offset_px = float(x_ref - cx_img)
+        
+        if self.cfg.DEBUG_SHOW:
+            dbg = ctx.frame.copy()
+            
+        debug = {}
+        if self.cfg.DEBUG_DRAW:
+            dbg = ctx.frame.copy()            
+            # redline debugging visuals
+            if angle_deg is not None:
+                cv.putText(dbg, f"Heading error (deg): {angle_deg:+.1f}",
+                        (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+                if offset_px is not None:
+                    cv.putText(dbg, f"Offset @ y={int(0.85*h)} (px): {offset_px:+.1f}",
+                            (10, 60), cv.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            else:
+                cv.putText(dbg, "No red line detected",
+                        (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            
+            debug["frame"] = dbg
+            debug["mask"] = mask
+            debug["edges"] = edges
+
+        if self.cfg.DEBUG_DRAW:
+            cv.drawContours(dbg, cv.findContours(edges, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)[0], -1, (0, 255, 0), 1)
+            
+        cv.drawMarker(dbg, (int(round(x_ref)), y_ref), (255, 255, 255), cv.MARKER_CROSS, 10, 2)
+        cv.line(dbg, (cx_img, 0), (cx_img, h - 1), (255, 255, 255), 1)
+        cv.line(dbg, (0, y_ref), (w - 1, y_ref), (255, 255, 255), 1)
+            
 
         return DetectionResult(
             found=True,
             center=(int(round(x_ref)), y_ref),
             offset_px=offset_px,
             angle_deg=angle_deg,
-            debug={"mask": mask, "edges": edges} if self.cfg.DEBUG_SHOW else None
+            debug=debug
         )
 class BullseyeDetector: # not done yet, WIP
     def __init__(self, cfg):
@@ -133,13 +163,29 @@ class BullseyeDetector: # not done yet, WIP
         if not contours:
             return None
 
-        c = max(contours, key=cv.contourArea)
-        area = cv.contourArea(c)
-        if area < self.cfg.MIN_CIRCLE_AREA:
-            return None
+        best = None
+        best_area = 0.0
 
-        (x, y), r = cv.minEnclosingCircle(c)
-        return (x, y, r, area)
+        for c in contours:
+            area = cv.contourArea(c)
+            if area < self.cfg.MIN_CIRCLE_AREA:
+                continue
+
+            peri = cv.arcLength(c, True)
+            if peri <= 1e-6:
+                continue
+
+            # circularity = 4.0 * math.pi * area / (peri * peri)
+            # if circularity < self.cfg.MIN_CIRCULARITY:
+            #     continue
+
+            (x, y), r = cv.minEnclosingCircle(c)
+
+            if area > best_area:
+                best = (x, y, r, area)
+                best_area = area
+
+        return best
     
     def detect(self, ctx: FrameContext) -> DetectionResult:
         hsv = ctx.hsv
@@ -150,23 +196,62 @@ class BullseyeDetector: # not done yet, WIP
         mask_red2 = cv.inRange(hsv, self.red_lower2, self.red_upper2)
         mask_red = cv.bitwise_or(mask_red1, mask_red2)
         
-        mask_blue = cv.inRange(hsv, self.blue_lower, self.blue_upper)
+        # mask_blue = cv.inRange(hsv, self.blue_lower, self.blue_upper)
         
         mask_red = cv.morphologyEx(mask_red, cv.MORPH_OPEN, self.kernel, iterations=1)
         mask_red = cv.morphologyEx(mask_red, cv.MORPH_CLOSE, self.kernel, iterations=2)
-        mask_blue = cv.morphologyEx(mask_blue, cv.MORPH_OPEN, self.kernel, iterations=1)
-        mask_blue = cv.morphologyEx(mask_blue, cv.MORPH_CLOSE, self.kernel, iterations=2)
+        # mask_blue = cv.morphologyEx(mask_blue, cv.MORPH_OPEN, self.kernel, iterations=1)
+        # mask_blue = cv.morphologyEx(mask_blue, cv.MORPH_CLOSE, self.kernel, iterations=2)
                                     
         red_circle = self._largest_circle(mask_red)
-        blue_circle = self._largest_circle(mask_blue)
         
-        if red_circle is None or blue_circle is None:
-            return DetectionResult(found=False)
+        if red_circle is None:
+            return DetectionResult(
+                found=False,
+                debug={"mask": mask_red}
+            )
         
         rx, ry, rr, _ = red_circle
-        bx, by, br, _ = blue_circle
+
+        cx = rx
+        cy = ry
+
+        x_ref = 0.5 * w
+        y_ref = h - 1
+
+        dx = cx - x_ref
+        dy = y_ref - cy
+        if dy < 1.0:
+            dy = 1.0
+
+        angle_deg = math.degrees(math.atan2(dx, dy))
+
+        pickup_ready = (
+            abs(angle_deg) <= self.cfg.BULLSEYE_ANGLE_TOL_DEG
+            and cy >= self.cfg.BULLSEYE_PICKUP_Y
+        )
+
+        debug = {}
+        if getattr(self.cfg, "DEBUG_SHOW", False):
+            dbg = ctx.frame.copy()
+            cv.circle(dbg, (int(rx), int(ry)), int(rr), (0, 0, 255), 2)
+            cv.circle(dbg, (int(cx), int(cy)), 4, (0, 255, 0), -1)
+            cv.line(dbg, (int(x_ref), int(y_ref)), (int(cx), int(cy)), (0, 255, 255), 2)
+            cv.line(dbg, (0, int(self.cfg.BULLSEYE_PICKUP_Y)), (w - 1, int(self.cfg.BULLSEYE_PICKUP_Y)), (255, 255, 0), 1)
+            debug["frame"] = dbg
+            debug["mask"] = mask_red
+
+        return DetectionResult(
+            found=True,
+            center=(int(round(cx)), int(round(cy))),
+            offset_px=dx,
+            angle_deg=angle_deg,
+            area=red_circle[3],
+            pickup_ready=pickup_ready,
+            debug=debug
+        )
         
-class SafezpneDetector:
+class SafezoneDetector:
     def __init__(self, cfg):
         self.cfg = cfg
         self.green_lower = np.array(cfg.GREEN_LOWER, dtype=np.uint8)

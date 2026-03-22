@@ -1,11 +1,13 @@
 import cv2 as cv
 import numpy as np
 from config import Config
-from vision.red_line import RedLineDetector
+import vision.vision_system 
+from vision.vision_system import FrameContext, BullseyeDetector, LineDetector, DetectionResult
 
 if __name__ == "__main__":
     cfg = Config()
-    detector = RedLineDetector(cfg)
+    # detector = BullseyeDetector(cfg)
+    detector = LineDetector(cfg)
     cap = cv.VideoCapture(0)  # default cam, Maybe make COM4
 
     if not cap.isOpened():
@@ -18,16 +20,19 @@ if __name__ == "__main__":
             if not ret:
                 print("Failed to read frame.")
                 break
+            
+            ctx = FrameContext(frame)
+            result = detector.detect(ctx)
 
-            angle_deg, offset_px, valid, debug = detector.process(frame)
+            print(f"valid={result.found}, angle={result.angle_deg}, offset={result.offset_px}")
 
-            print(f"valid={valid}, angle={angle_deg}, offset={offset_px}")
+            debug = result.debug
 
             if "frame" in debug:
                 cv.imshow("frame", debug["frame"])
             if "mask" in debug:
                 cv.imshow("mask", debug["mask"])
-            if debug.get("edges") is not None:
+            if "edges" in debug:
                 cv.imshow("edges", debug["edges"])
 
             if cv.waitKey(1) & 0xFF == ord("q"):
