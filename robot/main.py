@@ -4,7 +4,7 @@ import math
 import cv2 as cv
 
 from config import Config
-from vision.red_line import RedLineDetector
+from vision.vision_system import LineDetector, BullseyeDetector
 from control.outer_heading_pd import HeadingPD
 from control.mixer import DiffDriveMixer
 from hardware.usb_serial import USBSerial
@@ -68,7 +68,7 @@ def main():
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, cfg.CAM_H)
     cap.set(cv.CAP_PROP_FPS, cfg.CAM_FPS)
 
-    vision = RedLineDetector(cfg)
+    vision = LineDetector(cfg)
     mixer = DiffDriveMixer(cfg.r, cfg.L)
     outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
 
@@ -137,6 +137,8 @@ def main():
                     dbg = None
                 else:
                     theta_deg, offset_px, valid, dbg = vision.process(frame)
+                    # if poll_for_blue == True: # not implmeneted
+                        # next state
 
                 if valid:
                     line_lost_since = None
