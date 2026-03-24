@@ -7,8 +7,8 @@ from config import Config
 from vision.vision_system import LineDetector, BullseyeDetector
 from control.outer_heading_pd import HeadingPD
 from control.mixer import DiffDriveMixer
+from control.state import RobotStateMachine, State
 from hardware.usb_serial import USBSerial
-
 
 def clamp(x, lo, hi):
     return lo if x < lo else hi if x > hi else x
@@ -68,7 +68,8 @@ def main():
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, cfg.CAM_H)
     cap.set(cv.CAP_PROP_FPS, cfg.CAM_FPS)
 
-    vision = LineDetector(cfg)
+    line_vision = LineDetector(cfg)
+    bullseye_vision = BullseyeDetector(cfg)
     mixer = DiffDriveMixer(cfg.r, cfg.L)
     outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
 
@@ -99,7 +100,7 @@ def main():
     io.write("E 1\n")
     io.read()
 
-    # Init state
+    # Motion / command state
     halted = False
     halted_prev = False
 
@@ -108,7 +109,24 @@ def main():
     theta_ref_rad = 0.0
     theta_rad = 0.0
 
+    # Mission state
+    sm = RobotStateMachine()
+    last_state = sm.state
+    last_ack = None
+
+    # Detection / timeout helpers
     line_lost_since = None
+    bullseye_lost_since = None
+
+    # One-shot action flags
+    pickup_sent = False
+
+    # Tunables
+    start_delay_s = getattr(cfg, "START_DELAY_S", 1.0)
+    bullseye_lost_timeout = getattr(cfg, "BULLSEYE_LOST_TIMEOUT", 0.4)
+    bullseye_align_kp = getattr(cfg, "BULLSEYE_ALIGN_KP", 0.01)
+    bullseye_forward_angle_gate_deg = getattr(cfg, "BULLSEYE_FORWARD_ANGLE_GATE_DEG", 8.0)
+    bullseye_creep_speed = getattr(cfg, "BULLSEYE_CREEP_SPEED", 0.05)
 
     t_next_inner = time.perf_counter()
     t_next_outer = time.perf_counter()
@@ -128,62 +146,162 @@ def main():
             if now >= t_next_outer:
                 camera_query_count += 1
 
+                if sm.state != last_state:
+                    print("STATE:", sm.state.name)
+                    if sm.state != State.RETRIEVAL:
+                        pickup_sent = False
+                    bullseye_lost_since = None
+                    last_state = sm.state
+
                 ret, frame = cap.read()
 
-                if not ret:
-                    valid = False
-                    theta_deg = None
-                    offset_px = None
-                    dbg = None
-                else:
-                    theta_deg, offset_px, valid, dbg = vision.process(frame)
-                    # if poll_for_blue == True: # not implmeneted
-                        # next state
+                line_valid = False
+                line_theta_deg = None
+                line_offset_px = None
+                line_dbg = None
 
-                if valid:
-                    line_lost_since = None
-                    halted = False
+                bullseye_valid = False
+                bullseye_offset_px = None
+                bullseye_angle_deg = None
+                pickup_ready = False
+                bull_dbg = None
 
-                    theta_rad = math.radians(theta_deg)
-                    theta_ref_rad = 0
-                    # theta_ref_rad = math.asin(
-                    #     clamp(cfg.OFFSET_TO_ANGLE_GAIN * offset_px, -1.0, 1.0)
+                dbg = None
 
-                    yaw_target = outer.step(theta_ref_rad, theta_rad)
-                    pd_update_count += 1
+                if ret:
+                    if sm.state == State.SEARCHING:
+                        line_theta_deg, line_offset_px, line_valid, line_dbg = line_vision.process(frame)
 
-                    if yaw_slew > 0.0:
-                        yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
+                        result = bullseye_vision.process(frame)
+                        bullseye_valid = result.found
+                        bullseye_offset_px = result.offset_px
+                        bullseye_angle_deg = result.angle_deg
+                        pickup_ready = getattr(result, "pickup_ready", False)
+                        bull_dbg = result.debug
+
+                        dbg = bull_dbg if bull_dbg else line_dbg
+
+                    elif sm.state == State.BULLSEYE_LINEUP:
+                        # replace these next lines with your actual bullseye call/result extraction
+                        result = bullseye_vision.process(frame)
+                        bullseye_valid = result.found
+                        bullseye_offset_px = result.offset_px
+                        bullseye_angle_deg = result.angle_deg
+                        pickup_ready = getattr(result, "pickup_ready", False)
+                        bull_dbg = result.debug
+
+                        dbg = bull_dbg
+
                     else:
-                        yaw_cmd = yaw_target
+                        dbg = None
 
-                    speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
-                    v_target = cfg.vmax * speed_scale
-                    v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
-                    v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
+                if sm.state == State.WAIT_TO_START:
+                    halted = True
+                    yaw_cmd = 0.0
+                    v_cmd = 0.0
 
-                else:
-                    if line_lost_since is None:
-                        line_lost_since = now
+                    if sm.time_in_state() >= start_delay_s:
+                        sm.next()
 
-                    if now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
+                elif sm.state == State.SEARCHING:
+                    if bullseye_valid:
                         halted = True
                         yaw_cmd = 0.0
                         v_cmd = 0.0
-                    else:
+                        line_lost_since = None
+                        sm.next()
+
+                    elif line_valid:
+                        line_lost_since = None
                         halted = False
 
-                if cfg.DEBUG_SHOW and dbg:
-                    cv.imshow("mask", dbg["mask"])
-                    if dbg["edges"] is not None:
-                        cv.imshow("edges", dbg["edges"])
-                    cv.imshow("vision", dbg["frame"])
-                    if cv.waitKey(1) & 0xFF == ord('q'):
-                        break
+                        theta_rad = math.radians(line_theta_deg)
+                        theta_ref_rad = 0.0
+
+                        yaw_target = outer.step(theta_ref_rad, theta_rad)
+                        pd_update_count += 1
+
+                        if yaw_slew > 0.0:
+                            yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
+                        else:
+                            yaw_cmd = yaw_target
+
+                        speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
+                        v_target = cfg.vmax * speed_scale
+                        v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
+                        v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
+
+                    else:
+                        if line_lost_since is None:
+                            line_lost_since = now
+
+                        if now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
+                            halted = True
+                            yaw_cmd = 0.0
+                            v_cmd = 0.0
+                        else:
+                            halted = False
+
+                elif sm.state == State.BULLSEYE_LINEUP:
+                    if bullseye_valid:
+                        bullseye_lost_since = None
+                        halted = False
+
+                        if pickup_ready:
+                            halted = True
+                            yaw_cmd = 0.0
+                            v_cmd = 0.0
+                            sm.next()
+                        else:
+                            yaw_target = clamp(
+                                bullseye_align_kp * bullseye_offset_px,
+                                -cfg.U_YAW_LIMIT,
+                                cfg.U_YAW_LIMIT,
+                            )
+
+                            if yaw_slew > 0.0:
+                                yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
+                            else:
+                                yaw_cmd = yaw_target
+
+                            if bullseye_angle_deg is not None and abs(bullseye_angle_deg) <= bullseye_forward_angle_gate_deg:
+                                v_cmd = bullseye_creep_speed
+                            else:
+                                v_cmd = 0.0
+
+                    else:
+                        halted = True
+                        yaw_cmd = 0.0
+                        v_cmd = 0.0
+
+                        if bullseye_lost_since is None:
+                            bullseye_lost_since = now
+
+                        if now - bullseye_lost_since >= bullseye_lost_timeout:
+                            sm.transition_to(State.SEARCHING)
+
+                elif sm.state == State.RETRIEVAL:
+                    halted = True
+                    yaw_cmd = 0.0
+                    v_cmd = 0.0
+
+                    if not pickup_sent:
+                        io.write("PICK\n")
+                        pickup_sent = True
+
+                    pickup_done = (last_ack == "PICK_DONE")
+                    if pickup_done:
+                        print("pickup acknowledged")
+                        # later: sm.next() when FIND_SAFETY is integrated
+
+                else:
+                    halted = True
+                    yaw_cmd = 0.0
+                    v_cmd = 0.0
 
                 while t_next_outer <= now:
                     t_next_outer += cfg.DT_OUTER
-
+                        
             if now >= t_next_inner:
                 if halted:
                     if not halted_prev:
