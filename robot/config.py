@@ -58,7 +58,14 @@ class Config:
     DT_INNER = 1.0 / INNER_HZ
     MAX_RUN_S = 10.0
     LINE_LOST_TIMEOUT = 1.5
-
+    
+    # Control - State Machine
+    START_DELAY_S = 1.0
+    BULLSEYE_LOST_TIMEOUT = 0.4
+    BULLSEYE_ALIGN_KP = 0.01
+    BULLSEYE_FORWARD_ANGLE_GATE_DEG = 8.0
+    BULLSEYE_CREEP_SPEED = 0.05
+    
     # Control - Velocity
     V_SLEW_UP = 0.25 
     V_SLEW_DOWN = 0.75 
@@ -72,3 +79,7 @@ class Config:
     KP_THETA = 2.1
     KD_THETA = 0.005
     U_YAW_LIMIT = 1.0
+    
+    # Control - Bullseye Pickup
+    BULLSEYE_ANGLE_TOL_DEG = 5.0
+    BULLSEYE_PICKUP_Y = 300

@@ -244,7 +244,7 @@ class BullseyeDetector: # not done yet, WIP
         return DetectionResult(
             found=True,
             center=(int(round(cx)), int(round(cy))),
-            offset_px=dx,
+            offset_px=dy,
             angle_deg=angle_deg,
             area=red_circle[3],
             pickup_ready=pickup_ready,

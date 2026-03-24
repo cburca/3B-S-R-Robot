@@ -165,6 +165,7 @@ def main():
                 bullseye_angle_deg = None
                 pickup_ready = False
                 bull_dbg = None
+                final_bullseye_angle_deg = 0.0
 
                 dbg = None
 
@@ -242,7 +243,7 @@ def main():
                         else:
                             halted = False
 
-                elif sm.state == State.BULLSEYE_LINEUP:
+                elif sm.state == State.BULLSEYE_LINEUP: # change once I see fixed turn code
                     if bullseye_valid:
                         bullseye_lost_since = None
                         halted = False
@@ -251,10 +252,15 @@ def main():
                             halted = True
                             yaw_cmd = 0.0
                             v_cmd = 0.0
+                            final_bullseye_angle_deg = bullseye_angle_deg if bullseye_angle_deg is not None else 0.0
+                            
+                            turn_cmd_deg = 180.0 - final_bullseye_angle_deg
+                            io.write(f"TURN {turn_cmd_deg:.2f}\n")
+                            
                             sm.next()
                         else:
                             yaw_target = clamp(
-                                bullseye_align_kp * bullseye_offset_px,
+                                bullseye_align_kp * bullseye_angle_deg, 
                                 -cfg.U_YAW_LIMIT,
                                 cfg.U_YAW_LIMIT,
                             )
@@ -280,7 +286,7 @@ def main():
                         if now - bullseye_lost_since >= bullseye_lost_timeout:
                             sm.transition_to(State.SEARCHING)
 
-                elif sm.state == State.RETRIEVAL:
+                elif sm.state == State.RETRIEVAL: # purely picking system
                     halted = True
                     yaw_cmd = 0.0
                     v_cmd = 0.0
