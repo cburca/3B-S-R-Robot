@@ -51,7 +51,7 @@ static const float KI = 0.541f;
 static const float KD = 0.0f;
 
 // global variables for maneuvers
-static const float KP_TURN = 0.1f;   // Proportional gain
+static const float KP_POSITION = 0.1f;   // Proportional gain
 static const int16_t MIN_PWM = 50;    // Minimum PWM required to overcome motor friction
 static const int16_t MAX_PWM = 100;   // Maximum turning speed
 static const int32_t TOLERANCE = 40;  // Acceptable error in encoder counts

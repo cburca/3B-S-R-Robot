@@ -39,8 +39,8 @@ void turnDegrees(float turn_deg) {
         int32_t error_right = target_counts - right_abs;
 
         // calculate proportional PWM
-        int16_t pwm_left = error_left * KP_TURN;
-        int16_t pwm_right = error_right * KP_TURN;
+        int16_t pwm_left = error_left * KP_POSITION;
+        int16_t pwm_right = error_right * KP_POSITION;
 
         // limit PWM to safe max but still high enough to move
         if (pwm_left > 0) pwm_left = constrain(pwm_left, MIN_PWM, MAX_PWM);
