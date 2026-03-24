@@ -244,7 +244,7 @@ class BullseyeDetector: # not done yet, WIP
         return DetectionResult(
             found=True,
             center=(int(round(cx)), int(round(cy))),
-            offset_px=dy,
+            offset_px=dx,
             angle_deg=angle_deg,
             area=red_circle[3],
             pickup_ready=pickup_ready,
@@ -260,7 +260,7 @@ class SafezoneDetector:
         k = int(cfg.MORPH_K)
         self.kernel = np.ones((k, k), dtype=np.uint8)
     
-    def detect(self, ctx: FrameContext) -> DetectionResult:
+    def detect(self, ctx: FrameContext) -> DetectionResult: # copilot generated, not tested
         mask = cv.inRange(ctx.hsv, self.green_lower, self.green_upper)
         mask = cv.morphologyEx(mask, cv.MORPH_OPEN, self.kernel, iterations=1)
         mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, self.kernel, iterations=2)
