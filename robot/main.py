@@ -1,3 +1,4 @@
+import io
 import os
 import time
 import math
@@ -203,7 +204,6 @@ def main():
 
                     if sm.time_in_state() >= start_delay_s:
                         sm.next()
-
                 elif sm.state == State.SEARCHING:
                     if bullseye_valid:
                         halted = True
@@ -242,36 +242,56 @@ def main():
                             v_cmd = 0.0
                         else:
                             halted = False
-
                 elif sm.state == State.BULLSEYE_LINEUP: # change once I see fixed turn code
                     if bullseye_valid:
                         bullseye_lost_since = None
                         halted = False
 
-                        if pickup_ready:
+                        cy = result.center[1] if result.center is not None else None
+                        dy = cfg.BULLSEYE_PICKUP_Y - cy if cy is not None else None
+
+                        angle_ok = (
+                            bullseye_angle_deg is not None
+                            and abs(bullseye_angle_deg) <= cfg.BULLSEYE_ANGLE_TOL_DEG
+                        )
+                        dy_ok = (dy is not None and dy <= 0)
+
+                        if angle_ok and dy_ok:
+                            final_bullseye_angle_deg = bullseye_angle_deg if bullseye_angle_deg is not None else 0.0
                             halted = True
                             yaw_cmd = 0.0
                             v_cmd = 0.0
-                            final_bullseye_angle_deg = bullseye_angle_deg if bullseye_angle_deg is not None else 0.0
                             
                             turn_cmd_deg = 180.0 - final_bullseye_angle_deg
-                            io.write(f"TURN {turn_cmd_deg:.2f}\n")
+                            if turn_cmd_deg > 180.0:
+                                turn_cmd_deg -= 360.0 # exact directions TBD
+                            io.write(f"TURN {turn_cmd_deg:.2f}\n") 
                             
                             sm.next()
                         else:
-                            yaw_target = clamp(
-                                bullseye_align_kp * bullseye_angle_deg, 
-                                -cfg.U_YAW_LIMIT,
-                                cfg.U_YAW_LIMIT,
-                            )
+                            # turn only if angle is outside tolerance
+                            if not angle_ok:
+                                yaw_target = clamp(
+                                    bullseye_align_kp * bullseye_angle_deg,
+                                    -cfg.U_YAW_LIMIT,
+                                    cfg.U_YAW_LIMIT,
+                                )
 
-                            if yaw_slew > 0.0:
-                                yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
+                                if yaw_slew > 0.0:
+                                    yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
+                                else:
+                                    yaw_cmd = yaw_target
                             else:
-                                yaw_cmd = yaw_target
+                                yaw_cmd = 0.0
 
-                            if bullseye_angle_deg is not None and abs(bullseye_angle_deg) <= bullseye_forward_angle_gate_deg:
-                                v_cmd = bullseye_creep_speed
+                            # move forward until dy reaches zero
+                            if dy is not None and dy > 0:
+                                v_target = clamp(
+                                    cfg.BULLSEYE_DY_KP * dy,
+                                    cfg.BULLSEYE_CREEP_MIN,
+                                    cfg.BULLSEYE_CREEP_MAX,
+                                )
+                                v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
                             else:
                                 v_cmd = 0.0
 
@@ -285,7 +305,6 @@ def main():
 
                         if now - bullseye_lost_since >= bullseye_lost_timeout:
                             sm.transition_to(State.SEARCHING)
-
                 elif sm.state == State.RETRIEVAL: # purely picking system
                     halted = True
                     yaw_cmd = 0.0
@@ -300,7 +319,7 @@ def main():
                         print("pickup acknowledged")
                         # later: sm.next() when FIND_SAFETY is integrated
 
-                else:
+                else: # ideally never reaches here, there will be a done and fault state eventually
                     halted = True
                     yaw_cmd = 0.0
                     v_cmd = 0.0
