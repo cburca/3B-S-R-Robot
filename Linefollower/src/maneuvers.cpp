@@ -1,17 +1,7 @@
-#include "turn.h"
+#include "maneuvers.h"
 #include "config.h"
 #include "motors.h"
 #include "encoders.h"
-
-// global variables (from turning_test_PID.ino)
-static const float KP_TURN = 0.1f;   // Proportional gain
-static const int16_t MIN_PWM = 50;    // Minimum PWM required to overcome motor friction
-static const int16_t MAX_PWM = 100;   // Maximum turning speed
-static const int32_t TOLERANCE = 40;  // Acceptable error in encoder counts
-static const float CPR = 2797.0f;
-static const float WHEEL_RADIUS_M = 0.04f;   // meters
-static const float TRACK_WIDTH_M  = 0.179f;   // meters, wheel-center to wheel-center
-static const uint32_t SAMPLE_PERIOD_MS = 10;
 
 static float degToRad(float deg) {
   return deg * PI / 180.0f;
@@ -23,7 +13,7 @@ static int32_t computeTurnCounts(float turn_deg) {
   return (int32_t)(counts + 0.5f);
 }
 
-void turnDegrees(float turn) {
+void turnDegrees(float turn_deg) {
     int32_t start_left, start_right;
     encoders.readCounts(start_left, start_right);
 
