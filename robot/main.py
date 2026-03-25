@@ -171,6 +171,7 @@ def main():
 
                 dbg = None
 
+                # Debugging displays and vision results extraction
                 if ret:
                     if sm.state == State.SEARCHING:
                         line_theta_deg, line_offset_px, line_valid, line_dbg = line_vision.process(frame)

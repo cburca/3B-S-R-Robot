@@ -2,13 +2,13 @@ import cv2 as cv
 import numpy as np
 from config import Config
 import vision.vision_system 
-from vision.vision_system import FrameContext, BullseyeDetector, LineDetector, DetectionResult, detect_blue
+from vision.vision_system import FrameContext, BullseyeDetector, LineDetector, DetectionResult, blue_detector
 
 if __name__ == "__main__":
     cfg = Config()
     # detector = BullseyeDetector(cfg)
     detector = LineDetector(cfg)
-    cap = cv.VideoCapture(0)  # default cam, Maybe make COM4
+    cap = cv.VideoCapture(1)  # default cam, Maybe make COM4
 
     if not cap.isOpened():
         print("can't open camera.")
@@ -23,7 +23,8 @@ if __name__ == "__main__":
             
             ctx = FrameContext(frame)
             result = detector.detect(ctx)
-            blue_found = detect_blue(ctx)
+            blue_scan = blue_detector(cfg)
+            blue_found = blue_scan.detect_blue(ctx)
 
             print(
                 f"valid={result.found}, angle={result.angle_deg}, "
