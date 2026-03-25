@@ -295,17 +295,19 @@ class blue_detector:
         self.blue_lower = np.array(cfg.BLUE_LOWER, dtype=np.uint8)
         self.blue_upper = np.array(cfg.BLUE_UPPER, dtype=np.uint8)
         self.min_area = cfg.MIN_CIRCLE_AREA
+        self.y_thresh = int(cfg.BULLSEYE_PICKUP_Y)
+        
         self.kernel = np.ones((cfg.MORPH_K, cfg.MORPH_K), dtype=np.uint8)
-    
-    def detect_blue(self, ctx):
-        blue_lower = np.array(self.blue_lower, dtype=np.uint8)
-        blue_upper = np.array(self.blue_upper, dtype=np.uint8)
 
-        mask = cv.inRange(ctx.hsv, blue_lower, blue_upper)
+    def detect_blue(self, ctx):
+        mask = cv.inRange(ctx.hsv, self.blue_lower, self.blue_upper)
         mask = cv.morphologyEx(mask, cv.MORPH_OPEN, self.kernel)
         mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, self.kernel)
 
-        return cv.countNonZero(mask) >= self.min_area
+        y_thresh = self.y_thresh
+        roi = mask[y_thresh:, :]
 
-            
-            
+        return cv.countNonZero(roi) >= self.min_area
+
+                
+                
