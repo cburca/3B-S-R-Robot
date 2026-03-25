@@ -14,7 +14,7 @@ Encoders encoders;
 MotorController ctrl;
 
 // State
-enum class DriveMode : uint8_t { CLOSED_LOOP_VEL, OPEN_LOOP_PWM };
+enum class DriveMode : uint8_t { CLOSED_LOOP_VEL, OPEN_LOOP_PWM, TARGET_PICK, SAFE_ZONE_DROP}; // DISCUSS EXTRA TWO DRIVE MODES
 static DriveMode driveMode = DriveMode::CLOSED_LOOP_VEL;
 
 // For OPEN_LOOP_PWM mode
@@ -168,6 +168,40 @@ static void handleLine(char* s) {
       Serial.println("'");
     }
     return;
+  }
+
+  // Parse Turn & Pick Command Given turn angle (assuming motor stop command sent right before this)
+
+  if (c == 'T' || c == 't') {
+    int d = 0;  // Degree turn command amount
+    if (parse1i(s, d)){
+      driveMode = DriveMode::TARGET_PICK;
+      turnDegrees((float)d);
+      // Lower Servo
+      // Extend Syringe
+      // Raise Servo
+    
+      Serial.print("OK T ");
+      Serial.print(d);
+    } else {
+      Serial.print("ERR T ");
+      Serial.print(s);
+      Serial.println("'");
+    }
+    return;
+  }
+
+  // Parse Dropoff Command (safe zone detected) (assuming motor stop command sent right before this)
+
+  if (c == 'D' || c == 'd') {
+    driveMode = DriveMode::SAFE_ZONE_DROP;
+    dropOff(0);   // +ve or -ve float number to tune offset via experimentation
+    // Lower Servo
+    // Release Syringe
+    // Raise Servo
+
+    Serial.print("OK D");
+    return;         // Continue line following
   }
 
   if (c == 'S' || c == 's') {

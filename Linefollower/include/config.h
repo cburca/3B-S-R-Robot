@@ -59,3 +59,5 @@ static const float CPR = 2797.0f;
 static const float WHEEL_RADIUS_M = 0.04f;   // meters
 static const float TRACK_WIDTH_M  = 0.179f;   // meters, wheel-center to wheel-center
 static const uint32_t SAMPLE_PERIOD_MS = 10;
+
+static const float DROPOFF_DELTA = 0.250f;      // Dist from camera lense to center of balloon, in meters - JUST AN ESTIMATE, get from CAD + physical measurements
