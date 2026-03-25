@@ -199,6 +199,17 @@ def main():
                         line_dbg = line_result.debug
                         safety_result = safezone_vision.detect(frame)
                         safety_found = safety_result.found # placeholder for now, will be separate vision class eventually
+                        
+                        dbg = line_result.debug
+                        
+                    elif sm.state == State.RETURN:
+                        line_result = line_vision.process(frame)
+                        line_theta_deg = line_result.angle_deg
+                        line_offset_px = line_result.offset_px
+                        line_valid = line_result.found
+                        line_dbg = line_result.debug
+                        
+                        dbg = line_dbg
 
                     else:
                         dbg = None
