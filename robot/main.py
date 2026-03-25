@@ -5,7 +5,7 @@ import math
 import cv2 as cv
 
 from config import Config
-from vision.vision_system import LineDetector, BullseyeDetector, blue_detector
+from vision.vision_system import LineDetector, BullseyeDetector, blue_detector, SafezoneDetector # NEW SAFEZONE Functionality
 from control.outer_heading_pd import HeadingPD
 from control.mixer import DiffDriveMixer
 from control.state import RobotStateMachine, State
@@ -72,6 +72,7 @@ def main():
     line_vision = LineDetector(cfg)
     bullseye_vision = BullseyeDetector(cfg)
     blue_scan = blue_detector(cfg)
+    safezone_vision = SafezoneDetector(cfg)         # NEW SAFEZONE Functionality
     mixer = DiffDriveMixer(cfg.r, cfg.L)
     outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
 
