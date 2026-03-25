@@ -5,7 +5,7 @@ import math
 import cv2 as cv
 
 from config import Config
-from vision.vision_system import LineDetector, BullseyeDetector
+from vision.vision_system import LineDetector, BullseyeDetector, blue_detector
 from control.outer_heading_pd import HeadingPD
 from control.mixer import DiffDriveMixer
 from control.state import RobotStateMachine, State
@@ -71,6 +71,7 @@ def main():
 
     line_vision = LineDetector(cfg)
     bullseye_vision = BullseyeDetector(cfg)
+    blue_scan = blue_detector(cfg)
     mixer = DiffDriveMixer(cfg.r, cfg.L)
     outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
 
@@ -174,14 +175,7 @@ def main():
                     if sm.state == State.SEARCHING:
                         line_theta_deg, line_offset_px, line_valid, line_dbg = line_vision.process(frame)
 
-                        result = bullseye_vision.process(frame)
-                        bullseye_valid = result.found
-                        bullseye_offset_px = result.offset_px
-                        bullseye_angle_deg = result.angle_deg
-                        pickup_ready = getattr(result, "pickup_ready", False)
-                        bull_dbg = result.debug
-
-                        dbg = bull_dbg if bull_dbg else line_dbg
+                        dbg = line_dbg
 
                     elif sm.state == State.BULLSEYE_LINEUP:
                         # replace these next lines with your actual bullseye call/result extraction
@@ -193,7 +187,7 @@ def main():
                         bull_dbg = result.debug
 
                         dbg = bull_dbg
-
+   
                     else:
                         dbg = None
 
