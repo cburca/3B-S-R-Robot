@@ -17,15 +17,16 @@ class Config:
     RUN_TIME_S = 20.0
 
     # Color Thresholds
-    RED_LOWER1 = (0, 150, 70)
-    RED_UPPER1 = (10, 255, 255)
-    RED_LOWER2 = (160, 150, 70)
+    RED_LOWER1 = (0, 120, 90)
+    RED_UPPER1 = (8, 255, 255)
+    RED_LOWER2 = (170, 120, 90)
     RED_UPPER2 = (179, 255, 255)
     BLUE_LOWER = (100, 150, 0)
     BLUE_UPPER = (140, 255, 255)
     
     KERNEL_SIZE = 5
     MIN_CIRCLE_AREA = 100
+    MIN_BLUE_AREA = 500
 
     # Image Processing
     MIN_MASK_AREA = 400
