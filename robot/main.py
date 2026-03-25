@@ -162,32 +162,41 @@ def main():
                 line_offset_px = None
                 line_dbg = None
 
-                bullseye_valid = False
+                bullseye_found = False
                 bullseye_offset_px = None
                 bullseye_angle_deg = None
                 pickup_ready = False
                 bull_dbg = None
                 final_bullseye_angle_deg = 0.0
+                
+                turn_angle = None
 
                 dbg = None
 
                 # Debugging displays and vision results extraction
                 if ret:
                     if sm.state == State.SEARCHING:
-                        line_theta_deg, line_offset_px, line_valid, line_dbg = line_vision.process(frame)
-
-                        dbg = line_dbg
+                        line_result = line_vision.process(frame)
+                        line_theta_deg = line_result.angle_deg
+                        line_offset_px = line_result.offset_px
+                        line_valid = line_result.found
+                        bullseye_found = blue_scan.detect_blue(frame)
 
                     elif sm.state == State.BULLSEYE_LINEUP:
                         # replace these next lines with your actual bullseye call/result extraction
                         result = bullseye_vision.process(frame)
-                        bullseye_valid = result.found
+                        bullseye_found = result.found
                         bullseye_offset_px = result.offset_px
                         bullseye_angle_deg = result.angle_deg
                         pickup_ready = getattr(result, "pickup_ready", False)
-                        bull_dbg = result.debug
 
-                        dbg = bull_dbg
+                    elif sm.state == State.FIND_SAFETY:
+                        line_result = line_vision.process(frame)
+                        line_theta_deg = line_result.angle_deg
+                        line_offset_px = line_result.offset_px
+                        line_valid = line_result.found
+                        line_dbg = line_result.debug
+                        safety_found = SafetyDetector.detect(frame) # placeholder for now, will be separate vision class eventually
    
                     else:
                         dbg = None
@@ -200,7 +209,7 @@ def main():
                     if sm.time_in_state() >= start_delay_s:
                         sm.next()
                 elif sm.state == State.SEARCHING:
-                    if bullseye_valid:
+                    if bullseye_found:
                         halted = True
                         yaw_cmd = 0.0
                         v_cmd = 0.0
@@ -238,7 +247,7 @@ def main():
                         else:
                             halted = False
                 elif sm.state == State.BULLSEYE_LINEUP: # change once I see fixed turn code
-                    if bullseye_valid:
+                    if bullseye_found:
                         bullseye_lost_since = None
                         halted = False
 
@@ -251,21 +260,19 @@ def main():
                         )
                         dy_ok = (dy is not None and dy <= 0)
 
-                        if angle_ok and dy_ok:
+                        if pickup_ready and angle_ok and dy_ok: # kinds redundant to check pickup_ready here since it should only be true if angle and dy are good, but just in case
                             final_bullseye_angle_deg = bullseye_angle_deg if bullseye_angle_deg is not None else 0.0
                             halted = True
                             yaw_cmd = 0.0
                             v_cmd = 0.0
-                            
-                            turn_cmd_deg = 180.0 - final_bullseye_angle_deg
-                            if turn_cmd_deg > 180.0:
-                                turn_cmd_deg -= 360.0 # exact directions TBD
-                            io.write(f"TURN {turn_cmd_deg:.2f}\n") 
+                            if turn_angle > 180.0: # exact directions TBD
+                                turn_angle -= 360.0
+                            io.write(f"TURN {turn_angle:.2f}\n") 
                             
                             sm.next()
                         else:
                             # turn only if angle is outside tolerance
-                            if not angle_ok:
+                            if not angle_ok: # not sure how this will behave, maybe use gains from PD
                                 yaw_target = clamp(
                                     bullseye_align_kp * bullseye_angle_deg,
                                     -cfg.U_YAW_LIMIT,
@@ -306,14 +313,86 @@ def main():
                     v_cmd = 0.0
 
                     if not pickup_sent:
-                        io.write("PICK\n")
+                        io.write("T " + str(turn_angle) + "\n")
                         pickup_sent = True
 
                     pickup_done = (last_ack == "PICK_DONE")
                     if pickup_done:
                         print("pickup acknowledged")
                         # later: sm.next() when FIND_SAFETY is integrated
+                elif sm.state == State.FIND_SAFETY:
+                    if safety_found:
+                        halted = True
+                        yaw_cmd = 0.0
+                        v_cmd = 0.0
+                        sm.next()
+                    elif line_valid:
+                        line_lost_since = None
+                        halted = False
 
+                        theta_rad = math.radians(line_theta_deg)
+                        theta_ref_rad = 0.0
+
+                        yaw_target = outer.step(theta_ref_rad, theta_rad)
+                        pd_update_count += 1
+
+                        if yaw_slew > 0.0:
+                            yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
+                        else:
+                            yaw_cmd = yaw_target
+
+                        speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
+                        v_target = cfg.vmax * speed_scale
+                        v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
+                        v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
+
+                    else:
+                        if line_lost_since is None:
+                            line_lost_since = now
+
+                        if now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
+                            halted = True
+                            yaw_cmd = 0.0
+                            v_cmd = 0.0
+                        else:
+                            halted = False
+                    
+                elif sm.state == State.DEPOSITION:
+                    if not dropoff_sent:
+                        io.write("T " + str(turn_angle) + "\n")
+                        dropoff_sent = True
+                elif sm.state == State.RETURN:
+                    if line_valid:
+                        line_lost_since = None
+                        halted = False
+
+                        theta_rad = math.radians(line_theta_deg)
+                        theta_ref_rad = 0.0
+
+                        yaw_target = outer.step(theta_ref_rad, theta_rad)
+                        pd_update_count += 1
+
+                        if yaw_slew > 0.0:
+                            yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
+                        else:
+                            yaw_cmd = yaw_target
+
+                        speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
+                        v_target = cfg.vmax * speed_scale
+                        v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
+                        v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
+                    else:
+                        if line_lost_since is None:
+                            line_lost_since = now
+
+                        if now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
+                            halted = True
+                            yaw_cmd = 0.0
+                            v_cmd = 0.0
+                            sm.next()
+                        else:
+                            halted = False
+                    
                 else: # ideally never reaches here, there will be a done and fault state eventually
                     halted = True
                     yaw_cmd = 0.0
@@ -323,30 +402,36 @@ def main():
                     t_next_outer += cfg.DT_OUTER
                         
             if now >= t_next_inner:
-                if halted:
-                    if not halted_prev:
-                        io.write("S\n")
-                    send_vel(io, 0.0, 0.0)
-                    usb_send_count += 1
+                action_active = sm.state in {State.RETRIEVAL, State.DEPOSITION}
+
+                if not action_active:
+                    if halted:
+                        if not halted_prev:
+                            io.write("S\n")
+                        send_vel(io, 0.0, 0.0)
+                    else:
+                        w_l, w_r = mixer.wheel_speed_setpoints(v_cmd, yaw_cmd)
+
+                        w_peak = max(abs(w_l), abs(w_r))
+                        if w_peak > w_lim and w_peak > 1e-6:
+                            s = w_lim / w_peak
+                            w_l *= s
+                            w_r *= s
+
+                        l_cps = w_l * (cfg.ENCODER_CPR / (2.0 * math.pi))
+                        r_cps = w_r * (cfg.ENCODER_CPR / (2.0 * math.pi))
+                        send_vel(io, l_cps, r_cps)
+                        usb_send_count += 1
+
+                    halted_prev = halted
                 else:
-                    w_l, w_r = mixer.wheel_speed_setpoints(v_cmd, yaw_cmd)
-
-                    w_peak = max(abs(w_l), abs(w_r))
-                    if w_peak > w_lim and w_peak > 1e-6:
-                        s = w_lim / w_peak
-                        w_l *= s
-                        w_r *= s
-
-                    l_cps = w_l * (cfg.ENCODER_CPR / (2.0 * math.pi))
-                    r_cps = w_r * (cfg.ENCODER_CPR / (2.0 * math.pi))
-                    send_vel(io, l_cps, r_cps)
-                    usb_send_count += 1
-
-                halted_prev = halted
+                    halted_prev = True   # optional safety so next halt re-sends stop cleanly
 
                 ack = io.read()
-                if ack and ack.startswith("ERR"):
-                    print("ARDUINO:", ack)
+                if ack:
+                    last_ack = ack.strip()
+                    if last_ack.startswith("ERR"):
+                        print("ARDUINO:", last_ack)
 
                 while t_next_inner <= now:
                     t_next_inner += cfg.DT_INNER
