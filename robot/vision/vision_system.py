@@ -287,7 +287,25 @@ class SafezoneDetector:
             area=area,
             debug={"mask": mask} if self.cfg.DEBUG_SHOW else None
         )
-        
+
+class blue_detector:
+    
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.blue_lower = np.array(cfg.BLUE_LOWER, dtype=np.uint8)
+        self.blue_upper = np.array(cfg.BLUE_UPPER, dtype=np.uint8)
+        self.min_area = cfg.MIN_CIRCLE_AREA
+        self.kernel = np.ones((cfg.MORPH_K, cfg.MORPH_K), dtype=np.uint8)
+    
+    def detect_blue(self, ctx):
+        blue_lower = np.array(self.blue_lower, dtype=np.uint8)
+        blue_upper = np.array(self.blue_upper, dtype=np.uint8)
+
+        mask = cv.inRange(ctx.hsv, blue_lower, blue_upper)
+        mask = cv.morphologyEx(mask, cv.MORPH_OPEN, self.kernel)
+        mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, self.kernel)
+
+        return cv.countNonZero(mask) >= self.min_area
 
             
             
