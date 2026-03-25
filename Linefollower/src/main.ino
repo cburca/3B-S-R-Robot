@@ -12,6 +12,7 @@
 Motors motors;
 Encoders encoders;
 MotorController ctrl;
+ServoControl sc;
 
 // State
 enum class DriveMode : uint8_t { CLOSED_LOOP_VEL, OPEN_LOOP_PWM, TARGET_PICK, SAFE_ZONE_DROP}; // DISCUSS EXTRA TWO DRIVE MODES
@@ -177,17 +178,19 @@ static void handleLine(char* s) {
     if (parse1i(s, d)){
       driveMode = DriveMode::TARGET_PICK;
       turnDegrees((float)d);
-      // Lower Servo
-      // Extend Syringe
-      // Raise Servo
-    
-      Serial.print("OK T ");
-      Serial.print(d);
+
+      // Servo Picking
+      if (sc.pickSequence() == true) {
+        Serial.print("OK T ");
+        Serial.print(d);
+      }
+
     } else {
       Serial.print("ERR T ");
       Serial.print(s);
       Serial.println("'");
     }
+
     return;
   }
 
@@ -196,11 +199,16 @@ static void handleLine(char* s) {
   if (c == 'D' || c == 'd') {
     driveMode = DriveMode::SAFE_ZONE_DROP;
     dropOff(0);   // +ve or -ve float number to tune offset via experimentation
-    // Lower Servo
-    // Release Syringe
-    // Raise Servo
-
-    Serial.print("OK D");
+    
+    // Servo Dropoff
+    if (sc.placeSequence() == true) {
+      Serial.print("OK D");
+    } else {
+      Serial.print("ERR D s='");
+      Serial.print(s);
+      Serial.println("'");
+    }
+  
     return;         // Continue line following
   }
 
@@ -252,14 +260,7 @@ static void pollSerial() {
 void setup() {
   Serial.begin(BAUD);
 
-  // Servo raise
-  static constexpr uint8_t SERVO_LIFT_PIN = 13;
-  Servo liftServo;
-  Servo syringeServo;
-  syringeServo.attach(12);
-  liftServo.attach(SERVO_LIFT_PIN);
-  syringeServo.write(100);
-  liftServo.write(150);
+  // 
 
 
   encoders.begin(ENC_L_A, ENC_L_B, ENC_L_SIGN,
@@ -274,6 +275,8 @@ void setup() {
 
   ctrl.begin(&encoders, &motors, CTRL_HZ);
   ctrl.setTargets(0, 0);
+
+  sc.begin();
 
   hardStop();
   lastCmdMs = millis();
