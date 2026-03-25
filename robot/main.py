@@ -197,8 +197,9 @@ def main():
                         line_offset_px = line_result.offset_px
                         line_valid = line_result.found
                         line_dbg = line_result.debug
-                        safety_found = safezone_vision.detect(frame) # placeholder for now, will be separate vision class eventually
-   
+                        safety_result = safezone_vision.detect(frame)
+                        safety_found = safety_result.found # placeholder for now, will be separate vision class eventually
+
                     else:
                         dbg = None
 
