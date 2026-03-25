@@ -49,3 +49,28 @@ static const float CTRL_HZ = 100.0f;
 static const float KP = 0.00194f;
 static const float KI = 0.541f;
 static const float KD = 0.0f;
+
+// global variables for maneuvers
+static const float KP_POSITION = 0.1f;   // Proportional gain
+static const int16_t MIN_PWM = 50;    // Minimum PWM required to overcome motor friction
+static const int16_t MAX_PWM = 100;   // Maximum turning speed
+static const int32_t TOLERANCE = 40;  // Acceptable error in encoder counts
+static const float WHEEL_RADIUS_M = 0.04f;   // meters
+static const float TRACK_WIDTH_M  = 0.179f;   // meters, wheel-center to wheel-center
+static const uint32_t SAMPLE_PERIOD_MS = 10;
+
+static const float DROPOFF_DELTA = 0.250f;      // Dist from camera lense to center of balloon, in meters - JUST AN ESTIMATE, get from CAD + physical measurements
+
+// Servos
+static const uint8_t SYRINGE_SERVO_PIN = 12;
+static const uint8_t LIFT_SERVO_PIN = 13;
+
+static const uint8_t GRIP_POS = 0; // confirm with ryan
+static const uint8_t UNGRIP_POS = 100;
+
+static const uint8_t LIFT_POS = 150;
+static const uint8_t LOWER_POS = 0;
+
+static const uint8_t GRIP_DELAY = 500; // ms to wait after gripping/ungripping
+static const uint8_t LOWER_DELAY = 500; // ms to wait after lowering
+static const uint8_t RAISE_DELAY = 500; // ms to wait after raising
