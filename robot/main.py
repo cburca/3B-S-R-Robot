@@ -4,6 +4,8 @@ import time
 import math
 import cv2 as cv
 
+from gpiozero import button
+
 from config import Config
 from vision.vision_system import LineDetector, BullseyeDetector, blue_detector
 from control.outer_heading_pd import HeadingPD
@@ -53,6 +55,13 @@ def hard_stop(io): # might get rid of this
 
 def main():
     cfg = Config()
+
+    # ----- Start Button ----- #
+    start_button = button(17, pull_up=True, bounce_time=0.05)
+
+    print("Waiting for START button press...")
+    start_button.wait_for_press()  # BLOCK here until pressed
+    print("START button pressed. Beginning execution...")
 
     if isinstance(cfg.SERIAL_PORT, str) and cfg.SERIAL_PORT and not cfg.SERIAL_PORT.startswith("/") and "tty" in cfg.SERIAL_PORT:
         cfg.SERIAL_PORT = "/" + cfg.SERIAL_PORT
