@@ -65,11 +65,11 @@ static const float DROPOFF_DELTA = 0.250f;      // Dist from camera lense to cen
 static const uint8_t SYRINGE_SERVO_PIN = 12;
 static const uint8_t LIFT_SERVO_PIN = 13;
 
-static const uint8_t GRIP_POS = 0; // confirm with ryan
-static const uint8_t UNGRIP_POS = 100;
+static const uint8_t GRIP_POS = 15; // confirm with ryan
+static const uint8_t UNGRIP_POS = 180;
 
-static const uint8_t LIFT_POS = 150;
-static const uint8_t LOWER_POS = 0;
+static const uint8_t LIFT_POS = 0;
+static const uint8_t LOWER_POS = 180;
 
 static const uint8_t GRIP_DELAY = 500; // ms to wait after gripping/ungripping
 static const uint8_t LOWER_DELAY = 500; // ms to wait after lowering
