@@ -2,7 +2,7 @@ import cv2 as cv
 import numpy as np
 from config import Config
 import vision.vision_system 
-from vision.vision_system import FrameContext, BullseyeDetector, LineDetector, DetectionResult
+from vision.vision_system import FrameContext, BullseyeDetector, LineDetector, DetectionResult, detect_blue
 
 if __name__ == "__main__":
     cfg = Config()
@@ -23,8 +23,12 @@ if __name__ == "__main__":
             
             ctx = FrameContext(frame)
             result = detector.detect(ctx)
+            blue_found = detect_blue(ctx)
 
-            print(f"valid={result.found}, angle={result.angle_deg}, offset={result.offset_px}")
+            print(
+                f"valid={result.found}, angle={result.angle_deg}, "
+                f"offset={result.offset_px}, blue_found={blue_found}"
+            )
 
             debug = result.debug
 
