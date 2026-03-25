@@ -174,7 +174,7 @@ def main():
 
                 dbg = None
 
-                # Debugging displays and vision results extraction
+                # Vision results extraction
                 if ret:
                     if sm.state == State.SEARCHING:
                         line_result = line_vision.process(frame)
@@ -197,7 +197,7 @@ def main():
                         line_offset_px = line_result.offset_px
                         line_valid = line_result.found
                         line_dbg = line_result.debug
-                        safety_found = SafetyDetector.detect(frame) # placeholder for now, will be separate vision class eventually
+                        safety_found = safezone_vision.detect(frame) # placeholder for now, will be separate vision class eventually
    
                     else:
                         dbg = None
@@ -357,7 +357,6 @@ def main():
                             v_cmd = 0.0
                         else:
                             halted = False
-                    
                 elif sm.state == State.DEPOSITION:
                     if not dropoff_sent:
                         io.write("T " + str(turn_angle) + "\n")
