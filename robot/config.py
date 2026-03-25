@@ -40,6 +40,13 @@ class Config:
     BULLSEYE_ANGLE_TOL_DEG = 4.0
     BULLSEYE_PICKUP_Y = 340
 
+    # Safezone stuff
+    SAFEZONE_Y_MIN = 0.05      # top of image
+    SAFEZONE_Y_MAX = 0.25      # thickness of detection band
+
+    SAFEZONE_MIN_PIXELS = 300   # left/right threshold
+    SAFEZONE_MAX_CENTER_PIXELS = 100  # must stay low (no green in center)
+
     # Debug
     DEBUG_SHOW = True
     DEBUG_DRAW = True

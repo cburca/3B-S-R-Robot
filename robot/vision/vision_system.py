@@ -256,36 +256,61 @@ class SafezoneDetector:
         self.cfg = cfg
         self.green_lower = np.array(cfg.GREEN_LOWER, dtype=np.uint8)
         self.green_upper = np.array(cfg.GREEN_UPPER, dtype=np.uint8)
-        
+
         k = int(cfg.MORPH_K)
         self.kernel = np.ones((k, k), dtype=np.uint8)
-    
-    def detect(self, ctx: FrameContext) -> DetectionResult: # copilot generated, not tested
+
+    def detect(self, ctx: FrameContext) -> DetectionResult:
+        frame = ctx.frame
+        h, w = frame.shape[:2]
+
+        # --- GREEN MASK ---
         mask = cv.inRange(ctx.hsv, self.green_lower, self.green_upper)
         mask = cv.morphologyEx(mask, cv.MORPH_OPEN, self.kernel, iterations=1)
         mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, self.kernel, iterations=2)
-        
-        contours, _ = cv.findContours(mask, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-        if not contours:
-            return DetectionResult(found=False)
-        
-        c = max(contours, key=cv.contourArea)
-        area = cv.contourArea(c)
-        if area < self.cfg.MIN_SAFEZONE_AREA:
-            return DetectionResult(found=False)
-        
-        M = cv.moments(c)
-        if M["m00"] == 0:
-            return DetectionResult(found=False)
-        
-        cx = int(M["m10"] / M["m00"])
-        cy = int(M["m01"] / M["m00"])
-        
+
+        # --- REGION OF INTEREST (top band) ---
+        y_top = int(self.cfg.SAFEZONE_Y_MIN * h)
+        y_bot = int(self.cfg.SAFEZONE_Y_MAX * h)
+
+        left   = mask[y_top:y_bot, :w//3]
+        center = mask[y_top:y_bot, w//3:2*w//3]
+        right  = mask[y_top:y_bot, 2*w//3:]
+
+        # --- PIXEL COUNTS ---
+        left_count = cv.countNonZero(left)
+        center_count = cv.countNonZero(center)
+        right_count = cv.countNonZero(right)
+
+        # --- DETECTION LOGIC ---
+        detected = (
+            left_count  > self.cfg.SAFEZONE_MIN_PIXELS and
+            right_count > self.cfg.SAFEZONE_MIN_PIXELS and
+            center_count < self.cfg.SAFEZONE_MAX_CENTER_PIXELS
+        )
+
+        # --- DEBUG ---
+        debug = {}
+        if self.cfg.DEBUG_SHOW:
+            dbg = frame.copy()
+
+            cv.rectangle(dbg, (0, y_top), (w//3, y_bot), (255, 0, 0), 2)
+            cv.rectangle(dbg, (w//3, y_top), (2*w//3, y_bot), (0, 255, 0), 2)
+            cv.rectangle(dbg, (2*w//3, y_top), (w, y_bot), (0, 0, 255), 2)
+
+            cv.putText(dbg, f"L:{left_count}", (10, 30),
+                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
+            cv.putText(dbg, f"C:{center_count}", (10, 60),
+                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
+            cv.putText(dbg, f"R:{right_count}", (10, 90),
+                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
+
+            debug["frame"] = dbg
+            debug["mask"] = mask
+
         return DetectionResult(
-            found=True,
-            center=(cx, cy),
-            area=area,
-            debug={"mask": mask} if self.cfg.DEBUG_SHOW else None
+            found=detected,
+            debug=debug
         )
 
 class blue_detector:
