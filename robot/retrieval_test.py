@@ -82,7 +82,10 @@ def update_line_follow(
         else:
             yaw_cmd = yaw_target
 
-        v_target = cfg.vmax
+        # Velocity scaling from main.py
+        speed_scale = 1.0 / (1.0 + getattr(cfg, "KV", 0.0) * abs(yaw_cmd))
+        v_target = cfg.vmax * speed_scale
+        v_target = clamp(v_target, getattr(cfg, "V_MIN", 0.01), cfg.vmax)
         v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
 
         return halted, yaw_cmd, v_cmd, line_lost_since, 1
@@ -117,15 +120,16 @@ def main():
     # Start directly in RETRIEVAL
     sm = RobotStateMachine(state=State.RETRIEVAL)
     
-    # Sequence: RETRIEVAL -> RETURN -> DONE
+    # After RETRIEVAL, go to SEARCHING (line following) as requested
     TEST_FLOW = {
-        State.RETRIEVAL: State.RETURN,
-        State.RETURN: State.DONE,
+        State.RETRIEVAL: State.SEARCHING,
+        State.SEARCHING: State.DONE,
     }
 
     v_slew_up = float(cfg.V_SLEW_UP)
     v_slew_down = float(cfg.V_SLEW_DOWN)
     yaw_slew = float(cfg.YAW_SLEW)
+    w_lim = float(getattr(cfg, "WHEEL_OMEGA_LIMIT", 10.0))
 
     cap = cv.VideoCapture(cfg.CAM_INDEX)
     cap.set(cv.CAP_PROP_FRAME_WIDTH, cfg.CAM_W)
@@ -151,15 +155,22 @@ def main():
             time.sleep(0.1)
 
     line_vision = LineDetector(cfg)
-    outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
-    mixer = DiffDriveMixer(cfg.r, cfg.L)
+    
+    # Corrected Initializations
+    outer = HeadingPD(
+        kp=cfg.KP_THETA,
+        kd=cfg.KD_THETA,
+        dt=cfg.DT_OUTER,
+        u_limit=cfg.U_YAW_LIMIT
+    )
+    mixer = DiffDriveMixer(r=cfg.r, L=cfg.L)
 
     v_cmd = 0.0
     yaw_cmd = 0.0
     line_lost_since = None
     
     pickup_sent = False
-    pending_turn_angle = 180.0 # Assumed default for "lineup complete"
+    pending_turn_angle = 180.0 
     last_ack = None
     halted = False
     halted_prev = False
@@ -182,16 +193,16 @@ def main():
                 line_theta_deg = None
 
                 if ctx is not None:
-                    if sm.state == State.RETURN:
+                    if sm.state == State.SEARCHING:
                         line_result = run_detector(line_vision, ctx)
                         if line_result:
-                            line_theta_deg = line_result.angle_deg
-                            line_valid = line_result.found
+                            line_theta_deg = getattr(line_result, "angle_deg", None)
+                            line_valid = bool(getattr(line_result, "found", False))
 
                     # Debug visualization
                     if cfg.DEBUG_SHOW and ctx is not None:
                         dbg_frame = frame.copy()
-                        if sm.state == State.RETURN and line_result and line_result.debug.get("frame") is not None:
+                        if sm.state == State.SEARCHING and line_result and line_result.debug.get("frame") is not None:
                             dbg_frame = line_result.debug["frame"]
                         
                         cv.putText(dbg_frame, f"State: {sm.state.name}", (10, 30), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -211,29 +222,38 @@ def main():
                     
                     if last_ack:
                         if "PICK_DONE" in last_ack:
-                            print("Pickup complete! Starting return trip...")
+                            print("Pickup complete! Resuming line following (SEARCHING)...")
                             sm.transition_to(TEST_FLOW[sm.state])
                         elif "ERR" in last_ack:
                             print(f"Retrieval error: {last_ack}")
-                            sm.transition_to(State.FAULT)
+                            sm.transition_to(State.DONE)
 
-                elif sm.state == State.RETURN:
+                elif sm.state == State.SEARCHING:
                     halted, yaw_cmd, v_cmd, line_lost_since, _ = update_line_follow(
                         cfg, outer, line_valid, line_theta_deg, yaw_cmd, v_cmd, line_lost_since, now, v_slew_up, v_slew_down, yaw_slew
                     )
                     if halted:
-                        print("Reached end of return line or line lost.")
+                        print("Reached end of line or line lost.")
                         sm.transition_to(State.DONE)
 
                 t_next_outer += cfg.DT_OUTER
 
             if now >= t_next_inner:
+                # Motor control ONLY when not doing an autonomous Arduino maneuver
                 if sm.state != State.RETRIEVAL:
                     if halted:
                         if not halted_prev: io.write("S\n")
                         send_vel(io, 0.0, 0.0)
                     else:
                         w_l, w_r = mixer.wheel_speed_setpoints(v_cmd, yaw_cmd)
+                        
+                        # Apply angular velocity limit from main.py
+                        w_peak = max(abs(w_l), abs(w_r))
+                        if w_peak > w_lim and w_peak > 1e-6:
+                            s = w_lim / w_peak
+                            w_l *= s
+                            w_r *= s
+                        
                         l_cps = w_l * (cfg.ENCODER_CPR / (2.0 * math.pi))
                         r_cps = w_r * (cfg.ENCODER_CPR / (2.0 * math.pi))
                         send_vel(io, l_cps, r_cps)
