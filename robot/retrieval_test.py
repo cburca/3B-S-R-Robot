@@ -223,7 +223,6 @@ def main():
                     if last_ack:
                         if "PICK_DONE " in last_ack:
                             print("Pickup complete! Resuming line following (SEARCHING)...")
-                            outer.reset() # reset PD internal state to zero (prev_err = 0)
                             sm.transition_to(TEST_FLOW[sm.state])
                         elif "ERR" in last_ack:
                             print(f"Retrieval error: {last_ack}")
