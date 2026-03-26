@@ -194,9 +194,11 @@ static void handleLine(char* s) {
       hardStop();
       lastCmdMs = millis();
       driveMode = DriveMode::TARGET_PICK;
+      bool ok_pick = false;
 
-      turnDegrees(d, motors, encoders);
-      bool ok_pick = sc.pickSequence();
+      if (turnDegrees(d, motors, encoders)) {
+        ok_pick = sc.pickSequence();
+      }
 
       lastCmdMs = millis();
 

@@ -29,32 +29,46 @@ static int32_t computeDropOffCounts(float offset_m) {
     return (int32_t)(counts + 0.5f);
 }
 
-void turnDegrees(float turn_deg, Motors& motors, Encoders& encoders) {
-    if (fabsf(turn_deg) <= 1e-3f) {
-        motors.stop();
-        return;
+static int16_t positionToPwm(int32_t error_counts) {
+    if (error_counts <= TOLERANCE) {
+        return 0;
     }
 
+    float cmd = error_counts * KP_POSITION;
+
+    if (cmd < MIN_PWM) cmd = MIN_PWM;
+    if (cmd > MAX_PWM) cmd = MAX_PWM;
+
+    return (int16_t)cmd;
+}
+
+static bool runManeuver(
+    int32_t target_left_counts,
+    int32_t target_right_counts,
+    int8_t left_dir,
+    int8_t right_dir,
+    uint32_t timeout_ms,
+    Motors& motors,
+    Encoders& encoders
+) {
     int32_t start_left, start_right;
     encoders.readCounts(start_left, start_right);
-
-    const int8_t dir = (turn_deg >= 0.0f) ? 1 : -1;
-    const int32_t target_counts = computeTurnCounts(turn_deg);
 
     const uint32_t start_ms = millis();
     uint32_t last_sample_ms = start_ms;
 
     while (true) {
         uint32_t now = millis();
+
+        if (now - start_ms > timeout_ms) {
+            motors.stop();
+            return false;
+        }
+
         if (now - last_sample_ms < SAMPLE_PERIOD_MS) {
             continue;
         }
         last_sample_ms = now;
-
-        if (now - start_ms > SAMPLE_PERIOD_MS) {
-            motors.stop();
-            return;
-        }
 
         int32_t left_count, right_count;
         encoders.readCounts(left_count, right_count);
@@ -62,87 +76,57 @@ void turnDegrees(float turn_deg, Motors& motors, Encoders& encoders) {
         int32_t left_travel = abs32(left_count - start_left);
         int32_t right_travel = abs32(right_count - start_right);
 
-        int32_t error_left = target_counts - left_travel;
-        int32_t error_right = target_counts - right_travel;
+        int32_t error_left = target_left_counts - left_travel;
+        int32_t error_right = target_right_counts - right_travel;
 
-        int16_t pwm_left = 0;
-        int16_t pwm_right = 0;
+        int16_t pwm_left = positionToPwm(error_left);
+        int16_t pwm_right = positionToPwm(error_right);
 
-        if (error_left > TOLERANCE) {
-            float cmd_left = error_left * KP_POSITION;
-            if (cmd_left < MIN_PWM) cmd_left = MIN_PWM;
-            if (cmd_left > MAX_PWM) cmd_left = MAX_PWM;
-            pwm_left = (int16_t)cmd_left;
-        }
-
-        if (error_right > TOLERANCE) {
-            float cmd_right = error_right * KP_POSITION;
-            if (cmd_right < MIN_PWM) cmd_right = MIN_PWM;
-            if (cmd_right > MAX_PWM) cmd_right = MAX_PWM;
-            pwm_right = (int16_t)cmd_right;
-        }
-
-        motors.set(dir * pwm_left, -dir * pwm_right);
+        motors.set(left_dir * pwm_left, right_dir * pwm_right);
 
         if (error_left <= TOLERANCE && error_right <= TOLERANCE) {
             motors.stop();
-            return;
+            delay(75);
+            return true;
         }
     }
 }
 
-void dropOff(float tunable_offset, Motors& motors, Encoders& encoders) {
-    int32_t start_left, start_right;
-    encoders.readCounts(start_left, start_right);
+bool turnDegrees(float turn_deg, Motors& motors, Encoders& encoders) {
+    if (fabsf(turn_deg) <= 1e-3f) {
+        motors.stop();
+        return true;
+    }
 
+    const int8_t dir = (turn_deg >= 0.0f) ? 1 : -1;
+    const int32_t target_counts = computeTurnCounts(turn_deg);
+
+    return runManeuver(
+        target_counts,
+        target_counts,
+        dir,
+        -dir,
+        TURN_TIMEOUT_MS,
+        motors,
+        encoders
+    );
+}
+
+bool dropOff(float tunable_offset, Motors& motors, Encoders& encoders) {
     const int32_t target_counts = computeDropOffCounts(tunable_offset);
 
-    const uint32_t start_ms = millis();
-    uint32_t last_sample_ms = start_ms;
-
-    while (true) {
-        uint32_t now = millis();
-        if (now - last_sample_ms < SAMPLE_PERIOD_MS) {
-            continue;
-        }
-        last_sample_ms = now;
-
-        if (now - start_ms > SAMPLE_PERIOD_MS) {
-            motors.stop();
-            return;
-        }
-
-        int32_t left_count, right_count;
-        encoders.readCounts(left_count, right_count);
-
-        int32_t left_travel = abs32(left_count - start_left);
-        int32_t right_travel = abs32(right_count - start_right);
-
-        int32_t error_left = target_counts - left_travel;
-        int32_t error_right = target_counts - right_travel;
-
-        int16_t pwm_left = 0;
-        int16_t pwm_right = 0;
-
-        if (error_left > TOLERANCE) {
-            float cmd_left = error_left * KP_POSITION;
-            if (cmd_left < MIN_PWM) cmd_left = MIN_PWM;
-            if (cmd_left > MAX_PWM) cmd_left = MAX_PWM;
-            pwm_left = (int16_t)cmd_left;
-        }
-
-        if (error_right > TOLERANCE) {
-            float cmd_right = error_right * KP_POSITION;
-            if (cmd_right < MIN_PWM) cmd_right = MIN_PWM;
-            if (cmd_right > MAX_PWM) cmd_right = MAX_PWM;
-            pwm_right = (int16_t)cmd_right;
-        }
-
-        motors.set(pwm_left, pwm_right);
-
-        if (error_left <= TOLERANCE && error_right <= TOLERANCE) {
-            motors.stop();
-            return;
-        }
+    if (target_counts <= TOLERANCE) {
+        motors.stop();
+        return true;
     }
+
+    return runManeuver(
+        target_counts,
+        target_counts,
+        1,
+        1,
+        DROPOFF_TIMEOUT_MS,
+        motors,
+        encoders
+    );
 }
