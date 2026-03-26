@@ -420,6 +420,10 @@ def main():
                             yaw_slew,
                         )
                         pd_update_count += pd_inc
+                        
+                        if line_lost_since is not None and now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
+                            print("Line lost while finding safety. Ending run.")
+                            sm.transition_to(State.DONE)
 
                 elif sm.state == State.DEPOSITION:
                     halted = True

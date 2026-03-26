@@ -6,10 +6,10 @@ from vision.vision_system import FrameContext, BullseyeDetector, LineDetector, D
 
 if __name__ == "__main__":
     cfg = Config()
-    # detector = BullseyeDetector(cfg)
-    detector = LineDetector(cfg)
+    detector = BullseyeDetector(cfg)
+    # detector = LineDetector(cfg)
     blue_scan = blue_detector(cfg)
-    cap = cv.VideoCapture(1)  # default cam, Maybe make COM4
+    cap = cv.VideoCapture(0)  # default cam, Maybe make COM4
 
     if not cap.isOpened():
         print("can't open camera.")
