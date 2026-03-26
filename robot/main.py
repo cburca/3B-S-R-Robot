@@ -346,6 +346,8 @@ def main():
 
                             if last_ack.startswith("PICK_DONE"):
                                 print("pickup acknowledged:", last_ack)
+                                for _ in range(60):
+                                    cap.read()
                                 sm.transition_to(State.FIND_SAFETY)
                             elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
                                 print("pickup failed:", last_ack)
