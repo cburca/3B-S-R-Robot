@@ -1,15 +1,20 @@
-import io
-import os
 import time
 import math
 import cv2 as cv
 
 from config import Config
-from vision.vision_system import LineDetector, BullseyeDetector, blue_detector, SafezoneDetector # NEW SAFEZONE Functionality
+from vision.vision_system import (
+    FrameContext,
+    LineDetector,
+    BullseyeDetector,
+    blue_detector,
+    SafezoneDetector,
+)
 from control.outer_heading_pd import HeadingPD
 from control.mixer import DiffDriveMixer
 from control.state import RobotStateMachine, State
 from hardware.usb_serial import USBSerial
+
 
 def clamp(x, lo, hi):
     return lo if x < lo else hi if x > hi else x
@@ -25,6 +30,10 @@ def slew(prev, target, rate_up, rate_down, dt):
     return target
 
 
+def wrap_deg(a):
+    return (a + 180.0) % 360.0 - 180.0
+
+
 def send_vel(io, l_tps, r_tps):
     if hasattr(io, "set_vel"):
         io.set_vel(l_tps, r_tps)
@@ -38,7 +47,7 @@ def send_vel(io, l_tps, r_tps):
     raise AttributeError("Serial interface has no supported velocity command method")
 
 
-def hard_stop(io): # might get rid of this
+def hard_stop(io):
     try:
         send_vel(io, 0.0, 0.0)
     except Exception:
@@ -51,16 +60,89 @@ def hard_stop(io): # might get rid of this
             pass
 
 
+def run_detector(detector, ctx):
+    if hasattr(detector, "detect"):
+        return detector.detect(ctx)
+    if hasattr(detector, "process"):
+        return detector.process(ctx)
+    raise AttributeError(
+        f"{detector.__class__.__name__} has neither detect(ctx) nor process(ctx)"
+    )
+
+
+def run_blue_detector(detector, ctx):
+    if hasattr(detector, "detect"):
+        result = detector.detect(ctx)
+    elif hasattr(detector, "detect_blue"):
+        result = detector.detect_blue(ctx)
+    else:
+        raise AttributeError(
+            f"{detector.__class__.__name__} has neither detect(ctx) nor detect_blue(ctx)"
+        )
+
+    if isinstance(result, bool):
+        return result
+
+    return bool(getattr(result, "found", False))
+
+
+def update_line_follow(
+    cfg,
+    outer,
+    line_valid,
+    line_theta_deg,
+    yaw_cmd,
+    v_cmd,
+    line_lost_since,
+    now,
+    v_slew_up,
+    v_slew_down,
+    yaw_slew,
+):
+    if line_valid and line_theta_deg is not None:
+        line_lost_since = None
+        halted = False
+
+        theta_rad = math.radians(line_theta_deg)
+        yaw_target = outer.step(0.0, theta_rad)
+
+        if yaw_slew > 0.0:
+            yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
+        else:
+            yaw_cmd = yaw_target
+
+        speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
+        v_target = cfg.vmax * speed_scale
+        v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
+        v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
+
+        return halted, yaw_cmd, v_cmd, line_lost_since, 1
+
+    if line_lost_since is None:
+        line_lost_since = now
+
+    if now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
+        return True, 0.0, 0.0, line_lost_since, 0
+
+    return False, yaw_cmd, v_cmd, line_lost_since, 0
+
+
 def main():
     cfg = Config()
 
-    if isinstance(cfg.SERIAL_PORT, str) and cfg.SERIAL_PORT and not cfg.SERIAL_PORT.startswith("/") and "tty" in cfg.SERIAL_PORT:
+    if (
+        isinstance(cfg.SERIAL_PORT, str)
+        and cfg.SERIAL_PORT
+        and not cfg.SERIAL_PORT.startswith("/")
+        and "tty" in cfg.SERIAL_PORT
+    ):
         cfg.SERIAL_PORT = "/" + cfg.SERIAL_PORT
 
     v_slew_up = float(cfg.V_SLEW_UP)
     v_slew_down = float(cfg.V_SLEW_DOWN)
     yaw_slew = float(cfg.YAW_SLEW)
     w_lim = float(cfg.WHEEL_OMEGA_LIMIT)
+    max_run_s = float(getattr(cfg, "MAX_RUN_S", getattr(cfg, "RUN_TIME_S", 20.0)))
 
     print("max angular vel is " + str(w_lim))
 
@@ -69,12 +151,21 @@ def main():
     cap.set(cv.CAP_PROP_FRAME_HEIGHT, cfg.CAM_H)
     cap.set(cv.CAP_PROP_FPS, cfg.CAM_FPS)
 
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open camera index {cfg.CAM_INDEX}")
+
     line_vision = LineDetector(cfg)
     bullseye_vision = BullseyeDetector(cfg)
     blue_scan = blue_detector(cfg)
-    safezone_vision = SafezoneDetector(cfg)         # NEW SAFEZONE Functionality
+    safezone_vision = SafezoneDetector(cfg)
+
     mixer = DiffDriveMixer(cfg.r, cfg.L)
-    outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
+    outer = HeadingPD(
+        cfg.KP_THETA,
+        cfg.KD_THETA,
+        dt=cfg.DT_OUTER,
+        u_limit=cfg.U_YAW_LIMIT,
+    )
 
     io = USBSerial(cfg.SERIAL_PORT, baudrate=cfg.BAUD, timeout=cfg.SERIAL_TIMEOUT)
     io.connect()
@@ -87,7 +178,6 @@ def main():
     except Exception:
         pass
 
-    # Handshake
     io.write("SIX\n")
     t0 = time.time()
     ok = False
@@ -103,33 +193,26 @@ def main():
     io.write("E 1\n")
     io.read()
 
-    # Motion / command state
     halted = False
     halted_prev = False
 
     yaw_cmd = 0.0
-    v_cmd = 0.2
-    theta_ref_rad = 0.0
-    theta_rad = 0.0
+    v_cmd = 0.0
 
-    # Mission state
     sm = RobotStateMachine()
     last_state = sm.state
     last_ack = None
 
-    # Detection / timeout helpers
     line_lost_since = None
     bullseye_lost_since = None
 
-    # One-shot action flags
     pickup_sent = False
+    dropoff_sent = False
+    pending_turn_angle = 0.0
 
-    # Tunables
     start_delay_s = getattr(cfg, "START_DELAY_S", 1.0)
     bullseye_lost_timeout = getattr(cfg, "BULLSEYE_LOST_TIMEOUT", 0.4)
     bullseye_align_kp = getattr(cfg, "BULLSEYE_ALIGN_KP", 0.01)
-    bullseye_forward_angle_gate_deg = getattr(cfg, "BULLSEYE_FORWARD_ANGLE_GATE_DEG", 8.0)
-    bullseye_creep_speed = getattr(cfg, "BULLSEYE_CREEP_SPEED", 0.05)
 
     t_next_inner = time.perf_counter()
     t_next_outer = time.perf_counter()
@@ -143,7 +226,7 @@ def main():
     try:
         while True:
             now = time.perf_counter()
-            if now - t_start >= cfg.MAX_RUN_S:
+            if now - t_start >= max_run_s:
                 break
 
             if now >= t_next_outer:
@@ -151,68 +234,49 @@ def main():
 
                 if sm.state != last_state:
                     print("STATE:", sm.state.name)
+
                     if sm.state != State.RETRIEVAL:
                         pickup_sent = False
+                    if sm.state != State.DEPOSITION:
+                        dropoff_sent = False
+
                     bullseye_lost_since = None
                     last_state = sm.state
 
                 ret, frame = cap.read()
+                ctx = FrameContext(frame) if ret else None
 
                 line_valid = False
                 line_theta_deg = None
-                line_offset_px = None
-                line_dbg = None
 
                 bullseye_found = False
                 bullseye_offset_px = None
                 bullseye_angle_deg = None
                 pickup_ready = False
-                bull_dbg = None
-                final_bullseye_angle_deg = 0.0
-                
-                turn_angle = None
+                bullseye_center = None
 
-                dbg = None
+                safety_found = False
 
-                # Vision results extraction
-                if ret:
+                if ctx is not None:
+                    if sm.state in {State.SEARCHING, State.FIND_SAFETY, State.RETURN}:
+                        line_result = run_detector(line_vision, ctx)
+                        line_theta_deg = getattr(line_result, "angle_deg", None)
+                        line_valid = bool(getattr(line_result, "found", False))
+
                     if sm.state == State.SEARCHING:
-                        line_result = line_vision.detect(frame)
-                        line_theta_deg = line_result.angle_deg
-                        line_offset_px = line_result.offset_px
-                        line_valid = line_result.found
-                        bullseye_found = blue_scan.detect_blue(frame)
+                        bullseye_found = run_blue_detector(blue_scan, ctx)
 
                     elif sm.state == State.BULLSEYE_LINEUP:
-                        # replace these next lines with your actual bullseye call/result extraction
-                        result = bullseye_vision.process(frame)
-                        bullseye_found = result.found
-                        bullseye_offset_px = result.offset_px
-                        bullseye_angle_deg = result.angle_deg
-                        pickup_ready = getattr(result, "pickup_ready", False)
+                        bullseye_result = run_detector(bullseye_vision, ctx)
+                        bullseye_found = bool(getattr(bullseye_result, "found", False))
+                        bullseye_offset_px = getattr(bullseye_result, "offset_px", None)
+                        bullseye_angle_deg = getattr(bullseye_result, "angle_deg", None)
+                        pickup_ready = bool(getattr(bullseye_result, "pickup_ready", False))
+                        bullseye_center = getattr(bullseye_result, "center", None)
 
                     elif sm.state == State.FIND_SAFETY:
-                        line_result = line_vision.process(frame)
-                        line_theta_deg = line_result.angle_deg
-                        line_offset_px = line_result.offset_px
-                        line_valid = line_result.found
-                        line_dbg = line_result.debug
-                        safety_result = safezone_vision.detect(frame)
-                        safety_found = safety_result.found # placeholder for now, will be separate vision class eventually
-                        
-                        dbg = line_result.debug
-                        
-                    elif sm.state == State.RETURN:
-                        line_result = line_vision.process(frame)
-                        line_theta_deg = line_result.angle_deg
-                        line_offset_px = line_result.offset_px
-                        line_valid = line_result.found
-                        line_dbg = line_result.debug
-                        
-                        dbg = line_dbg
-
-                    else:
-                        dbg = None
+                        safety_result = run_detector(safezone_vision, ctx)
+                        safety_found = bool(getattr(safety_result, "found", False))
 
                 if sm.state == State.WAIT_TO_START:
                     halted = True
@@ -221,6 +285,7 @@ def main():
 
                     if sm.time_in_state() >= start_delay_s:
                         sm.next()
+
                 elif sm.state == State.SEARCHING:
                     if bullseye_found:
                         halted = True
@@ -228,43 +293,28 @@ def main():
                         v_cmd = 0.0
                         line_lost_since = None
                         sm.next()
-
-                    elif line_valid:
-                        line_lost_since = None
-                        halted = False
-
-                        theta_rad = math.radians(line_theta_deg)
-                        theta_ref_rad = 0.0
-
-                        yaw_target = outer.step(theta_ref_rad, theta_rad)
-                        pd_update_count += 1
-
-                        if yaw_slew > 0.0:
-                            yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
-                        else:
-                            yaw_cmd = yaw_target
-
-                        speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
-                        v_target = cfg.vmax * speed_scale
-                        v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
-                        v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
-
                     else:
-                        if line_lost_since is None:
-                            line_lost_since = now
+                        halted, yaw_cmd, v_cmd, line_lost_since, pd_inc = update_line_follow(
+                            cfg,
+                            outer,
+                            line_valid,
+                            line_theta_deg,
+                            yaw_cmd,
+                            v_cmd,
+                            line_lost_since,
+                            now,
+                            v_slew_up,
+                            v_slew_down,
+                            yaw_slew,
+                        )
+                        pd_update_count += pd_inc
 
-                        if now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
-                            halted = True
-                            yaw_cmd = 0.0
-                            v_cmd = 0.0
-                        else:
-                            halted = False
-                elif sm.state == State.BULLSEYE_LINEUP: # change once I see fixed turn code
+                elif sm.state == State.BULLSEYE_LINEUP:
                     if bullseye_found:
                         bullseye_lost_since = None
                         halted = False
 
-                        cy = result.center[1] if result.center is not None else None
+                        cy = bullseye_center[1] if bullseye_center is not None else None
                         dy = cfg.BULLSEYE_PICKUP_Y - cy if cy is not None else None
 
                         angle_ok = (
@@ -273,19 +323,18 @@ def main():
                         )
                         dy_ok = (dy is not None and dy <= 0)
 
-                        if pickup_ready and angle_ok and dy_ok: # kinds redundant to check pickup_ready here since it should only be true if angle and dy are good, but just in case
-                            final_bullseye_angle_deg = bullseye_angle_deg if bullseye_angle_deg is not None else 0.0
+                        if pickup_ready and angle_ok and dy_ok:
+                            final_bullseye_angle_deg = (
+                                bullseye_angle_deg if bullseye_angle_deg is not None else 0.0
+                            )
+                            pending_turn_angle = wrap_deg(180.0 - final_bullseye_angle_deg)
+
                             halted = True
                             yaw_cmd = 0.0
                             v_cmd = 0.0
-                            if turn_angle > 180.0: # exact directions TBD
-                                turn_angle -= 360.0
-                            io.write(f"TURN {turn_angle:.2f}\n") 
-                            
                             sm.next()
                         else:
-                            # turn only if angle is outside tolerance
-                            if not angle_ok: # not sure how this will behave, maybe use gains from PD
+                            if bullseye_angle_deg is not None and not angle_ok:
                                 yaw_target = clamp(
                                     bullseye_align_kp * bullseye_angle_deg,
                                     -cfg.U_YAW_LIMIT,
@@ -293,23 +342,33 @@ def main():
                                 )
 
                                 if yaw_slew > 0.0:
-                                    yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
+                                    yaw_cmd = slew(
+                                        yaw_cmd,
+                                        yaw_target,
+                                        yaw_slew,
+                                        yaw_slew,
+                                        cfg.DT_OUTER,
+                                    )
                                 else:
                                     yaw_cmd = yaw_target
                             else:
                                 yaw_cmd = 0.0
 
-                            # move forward until dy reaches zero
                             if dy is not None and dy > 0:
                                 v_target = clamp(
                                     cfg.BULLSEYE_DY_KP * dy,
                                     cfg.BULLSEYE_CREEP_MIN,
                                     cfg.BULLSEYE_CREEP_MAX,
                                 )
-                                v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
+                                v_cmd = slew(
+                                    v_cmd,
+                                    v_target,
+                                    v_slew_up,
+                                    v_slew_down,
+                                    cfg.DT_OUTER,
+                                )
                             else:
                                 v_cmd = 0.0
-
                     else:
                         halted = True
                         yaw_cmd = 0.0
@@ -320,99 +379,79 @@ def main():
 
                         if now - bullseye_lost_since >= bullseye_lost_timeout:
                             sm.transition_to(State.SEARCHING)
-                elif sm.state == State.RETRIEVAL: # purely picking system
+
+                elif sm.state == State.RETRIEVAL:
                     halted = True
                     yaw_cmd = 0.0
                     v_cmd = 0.0
 
                     if not pickup_sent:
-                        io.write("T " + str(turn_angle) + "\n")
+                        io.write(f"T {pending_turn_angle:.2f}\n")
                         pickup_sent = True
 
                     pickup_done = (last_ack == "PICK_DONE")
                     if pickup_done:
                         print("pickup acknowledged")
-                        # later: sm.next() when FIND_SAFETY is integrated
+                        # sm.next()
+
                 elif sm.state == State.FIND_SAFETY:
                     if safety_found:
                         halted = True
                         yaw_cmd = 0.0
                         v_cmd = 0.0
                         sm.next()
-                    elif line_valid:
-                        line_lost_since = None
-                        halted = False
-
-                        theta_rad = math.radians(line_theta_deg)
-                        theta_ref_rad = 0.0
-
-                        yaw_target = outer.step(theta_ref_rad, theta_rad)
-                        pd_update_count += 1
-
-                        if yaw_slew > 0.0:
-                            yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
-                        else:
-                            yaw_cmd = yaw_target
-
-                        speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
-                        v_target = cfg.vmax * speed_scale
-                        v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
-                        v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
-
                     else:
-                        if line_lost_since is None:
-                            line_lost_since = now
+                        halted, yaw_cmd, v_cmd, line_lost_since, pd_inc = update_line_follow(
+                            cfg,
+                            outer,
+                            line_valid,
+                            line_theta_deg,
+                            yaw_cmd,
+                            v_cmd,
+                            line_lost_since,
+                            now,
+                            v_slew_up,
+                            v_slew_down,
+                            yaw_slew,
+                        )
+                        pd_update_count += pd_inc
 
-                        if now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
-                            halted = True
-                            yaw_cmd = 0.0
-                            v_cmd = 0.0
-                        else:
-                            halted = False
                 elif sm.state == State.DEPOSITION:
+                    halted = True
+                    yaw_cmd = 0.0
+                    v_cmd = 0.0
+
                     if not dropoff_sent:
-                        io.write("T " + str(turn_angle) + "\n")
+                        io.write(f"T {pending_turn_angle:.2f}\n")
                         dropoff_sent = True
+
                 elif sm.state == State.RETURN:
-                    if line_valid:
-                        line_lost_since = None
-                        halted = False
+                    halted, yaw_cmd, v_cmd, line_lost_since, pd_inc = update_line_follow(
+                        cfg,
+                        outer,
+                        line_valid,
+                        line_theta_deg,
+                        yaw_cmd,
+                        v_cmd,
+                        line_lost_since,
+                        now,
+                        v_slew_up,
+                        v_slew_down,
+                        yaw_slew,
+                    )
+                    pd_update_count += pd_inc
 
-                        theta_rad = math.radians(line_theta_deg)
-                        theta_ref_rad = 0.0
+                    if halted:
+                        sm.next()
 
-                        yaw_target = outer.step(theta_ref_rad, theta_rad)
-                        pd_update_count += 1
-
-                        if yaw_slew > 0.0:
-                            yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
-                        else:
-                            yaw_cmd = yaw_target
-
-                        speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
-                        v_target = cfg.vmax * speed_scale
-                        v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
-                        v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
-                    else:
-                        if line_lost_since is None:
-                            line_lost_since = now
-
-                        if now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
-                            halted = True
-                            yaw_cmd = 0.0
-                            v_cmd = 0.0
-                            sm.next()
-                        else:
-                            halted = False
-                    
-                else: # ideally never reaches here, there will be a done and fault state eventually
+                else:
                     halted = True
                     yaw_cmd = 0.0
                     v_cmd = 0.0
 
                 while t_next_outer <= now:
                     t_next_outer += cfg.DT_OUTER
-                        
+
             if now >= t_next_inner:
                 action_active = sm.state in {State.RETRIEVAL, State.DEPOSITION}
 
@@ -437,7 +476,7 @@ def main():
 
                     halted_prev = halted
                 else:
-                    halted_prev = True   # optional safety so next halt re-sends stop cleanly
+                    halted_prev = True
 
                 ack = io.read()
                 if ack:
@@ -468,6 +507,7 @@ def main():
             io.close()
         except Exception:
             pass
+
         cap.release()
         cv.destroyAllWindows()
 
