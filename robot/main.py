@@ -350,10 +350,8 @@ def main():
 
                             if last_ack.startswith("PICK_DONE"):
                                 print("pickup acknowledged:", last_ack)
-<<<<<<< HEAD
-                                for _ in range(60):
+                                for _ in range(20):
                                     cap.read()
-=======
 
                                 halted = True
                                 yaw_cmd = 0.0
@@ -364,12 +362,10 @@ def main():
                                 if hasattr(outer, "reset"):
                                     outer.reset()
 
-                                resume_find_safety_at = now + post_pick_settle_s
->>>>>>> origin/integration
                                 sm.transition_to(State.FIND_SAFETY)
                             elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
                                 print("pickup failed:", last_ack)
-                                sm.transition_to(State.FAULT)
+                                sm.transstion_to(State.FAULT)
                         else:
                             if bullseye_angle_deg is not None and not angle_ok:
                                 yaw_target = clamp(
