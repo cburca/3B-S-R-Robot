@@ -336,7 +336,7 @@ def main():
                         else:
                             if bullseye_angle_deg is not None and not angle_ok:
                                 yaw_target = clamp(
-                                    bullseye_align_kp * bullseye_angle_deg,
+                                    -bullseye_align_kp * bullseye_angle_deg,
                                     -cfg.U_YAW_LIMIT,
                                     cfg.U_YAW_LIMIT,
                                 )
