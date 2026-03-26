@@ -319,7 +319,7 @@ class blue_detector:
         self.cfg = cfg
         self.blue_lower = np.array(cfg.BLUE_LOWER, dtype=np.uint8)
         self.blue_upper = np.array(cfg.BLUE_UPPER, dtype=np.uint8)
-        self.min_area = cfg.MIN_CIRCLE_AREA
+        self.min_area = cfg.MIN_BLUE_AREA
         self.y_thresh = int(cfg.BULLSEYE_PICKUP_Y)
         
         self.kernel = np.ones((cfg.MORPH_K, cfg.MORPH_K), dtype=np.uint8)
