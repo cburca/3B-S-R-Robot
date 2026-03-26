@@ -28,7 +28,7 @@ class Config:
     
     KERNEL_SIZE = 5
     MIN_CIRCLE_AREA = 100
-    MIN_BLUE_AREA = 500
+    MIN_BLUE_AREA = 1000
 
     # Image Processing
     MIN_MASK_AREA = 400

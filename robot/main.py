@@ -378,7 +378,7 @@ def main():
                             bullseye_lost_since = now
 
                         if now - bullseye_lost_since >= bullseye_lost_timeout:
-                            sm.transition_to(State.SEARCHING)
+                            sm.transition_to(State.DONE)
 
                 elif sm.state == State.RETRIEVAL:
                     halted = True
@@ -444,6 +444,12 @@ def main():
                     if halted:
                         sm.next()
 
+                elif sm.state in {State.DONE, State.FAULT}:
+                    halted = True
+                    yaw_cmd = 0.0
+                    v_cmd = 0.0
+                    hard_stop(io)
+                    break
                 else:
                     halted = True
                     yaw_cmd = 0.0
