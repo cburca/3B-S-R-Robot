@@ -17,9 +17,9 @@ class Config:
     RUN_TIME_S = 20.0
 
     # Color Thresholds
-    RED_LOWER1 = (0, 120, 90)
+    RED_LOWER1 = (0, 90, 90)
     RED_UPPER1 = (20, 255, 255)
-    RED_LOWER2 = (160, 120, 90)
+    RED_LOWER2 = (160, 90, 90)
     RED_UPPER2 = (180, 255, 255)
     BLUE_LOWER = (100, 150, 0)
     BLUE_UPPER = (140, 255, 255)
