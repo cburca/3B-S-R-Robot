@@ -8,6 +8,7 @@ if __name__ == "__main__":
     cfg = Config()
     # detector = BullseyeDetector(cfg)
     detector = LineDetector(cfg)
+    blue_scan = blue_detector(cfg)
     cap = cv.VideoCapture(1)  # default cam, Maybe make COM4
 
     if not cap.isOpened():
@@ -23,7 +24,6 @@ if __name__ == "__main__":
             
             ctx = FrameContext(frame)
             result = detector.detect(ctx)
-            blue_scan = blue_detector(cfg)
             blue_found = blue_scan.detect_blue(ctx)
 
             print(
