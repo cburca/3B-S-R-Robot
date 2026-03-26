@@ -23,6 +23,8 @@ class Config:
     RED_UPPER2 = (179, 255, 255)
     BLUE_LOWER = (100, 150, 0)
     BLUE_UPPER = (140, 255, 255)
+    GREEN_LOWER = (40, 70, 70)
+    GREEN_UPPER = (85, 255, 255)
     
     KERNEL_SIZE = 5
     MIN_CIRCLE_AREA = 100

@@ -177,7 +177,7 @@ def main():
                 # Vision results extraction
                 if ret:
                     if sm.state == State.SEARCHING:
-                        line_result = line_vision.process(frame)
+                        line_result = line_vision.detect(frame)
                         line_theta_deg = line_result.angle_deg
                         line_offset_px = line_result.offset_px
                         line_valid = line_result.found
