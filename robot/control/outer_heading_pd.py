@@ -17,3 +17,7 @@ class HeadingPD:
         if u < -self.u_limit:
             u = -self.u_limit
         return u
+    
+    def reset(self):
+        self.prev_err = 0.0
+        
