@@ -123,7 +123,7 @@ def main():
     # After RETRIEVAL, go to SEARCHING (line following) as requested
     TEST_FLOW = {
         State.RETRIEVAL: State.SEARCHING,
-        State.SEARCHING; State.DONE
+        State.SEARCHING: State.DONE
     }
 
     v_slew_up = float(cfg.V_SLEW_UP)
