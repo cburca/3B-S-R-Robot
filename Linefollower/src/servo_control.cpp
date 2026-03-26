@@ -6,12 +6,12 @@ void ServoControl::begin() {
     SyringeServo.attach(12);
     LiftServo.attach(13);
 
-    // set to neutral position
+    // set to neutral position  
 }
 
 bool ServoControl::pickSequence() {
     // Pick sequence implementation
-    LiftServo.write(GRIP_POS);     //Lower
+    LiftServo.write(LOWER_POS);     //Lower
     delay(LOWER_DELAY);
     SyringeServo.write(GRIP_POS);   //Grip
     delay(GRIP_DELAY);
