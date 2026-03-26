@@ -4,7 +4,6 @@
 
 class ServoControl {
 public:
-    ServoControl();
     void begin();
     bool pickSequence();
     bool placeSequence();

@@ -3,11 +3,11 @@
 #include "motors.h"
 #include "encoders.h"
 
-static float degToRad(float deg) {
+float degToRad(float deg) {
   return deg * PI / 180.0f;
 }
 
-static int32_t computeTurnCounts(float turn_deg) {
+int32_t computeTurnCounts(float turn_deg) {
   float theta = degToRad(turn_deg);
   float counts = theta * TRACK_WIDTH_M * ENCODER_CPR / (4.0f * PI * WHEEL_RADIUS_M);
   return (int32_t)(counts + 0.5f);
@@ -61,7 +61,7 @@ void turnDegrees(float turn_deg, Motors& motors, Encoders& encoders) {
     }
 }
 
-static int32_t computeDropOffCounts(float offset) {
+uint32_t computeDropOffCounts(float offset) {
   float counts = ((offset + DROPOFF_DELTA) * ENCODER_CPR) / (2 * PI * WHEEL_RADIUS_M);
   return (int32_t)(counts);
 }
