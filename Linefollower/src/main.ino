@@ -195,7 +195,7 @@ static void handleLine(char* s) {
       lastCmdMs = millis();
       driveMode = DriveMode::TARGET_PICK;
 
-      turnDegrees(d);
+      turnDegrees(d, motors, encoders);
       bool ok_pick = sc.pickSequence();
 
       lastCmdMs = millis();
@@ -219,7 +219,7 @@ static void handleLine(char* s) {
     lastCmdMs = millis();
     driveMode = DriveMode::SAFE_ZONE_DROP;
 
-    dropOff(0.0f);
+    dropOff(0.0f, motors, encoders);
     bool ok_drop = sc.placeSequence();
 
     lastCmdMs = millis();
