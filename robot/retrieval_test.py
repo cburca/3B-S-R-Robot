@@ -122,7 +122,8 @@ def main():
     
     # After RETRIEVAL, go to SEARCHING (line following) as requested
     TEST_FLOW = {
-        State.RETRIEVAL: State.DONE
+        State.RETRIEVAL: State.SEARCHING,
+        State.SEARCHING; State.DONE
     }
 
     v_slew_up = float(cfg.V_SLEW_UP)
@@ -223,6 +224,7 @@ def main():
                         if "PICK_DONE " in last_ack:
                             print("Pickup complete! Resuming line following (SEARCHING)...")
                             sm.transition_to(TEST_FLOW[sm.state])
+                            halted = False
                         elif "ERR" in last_ack:
                             print(f"Retrieval error: {last_ack}")
                             sm.transition_to(State.DONE)
@@ -231,6 +233,11 @@ def main():
                     halted, yaw_cmd, v_cmd, line_lost_since, _ = update_line_follow(
                         cfg, outer, line_valid, line_theta_deg, yaw_cmd, v_cmd, line_lost_since, now, v_slew_up, v_slew_down, yaw_slew
                     )
+                    print(f"Halted: {halted}")
+                    print(f"Line theta degree: {line_theta_deg}")
+                    print(f"Line valid: {line_valid}")
+                    print(f"Yaw command: {yaw_cmd}")
+                    print(f"Velocity command: {v_cmd}")
                     if halted:
                         print("Reached end of line or line lost.")
                         sm.transition_to(State.DONE)
