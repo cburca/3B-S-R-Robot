@@ -45,6 +45,20 @@ static inline bool isSIX(const char* s) {
          (s[3] == '\0');
 }
 
+static bool parse1f(const char* s, float& v) {
+  while (*s == ' ' || *s == '\t') s++;
+
+  char* end;
+  double x = strtod(s, &end);
+  if (end == s) return false;
+
+  while (*end == ' ' || *end == '\t') end++;
+  if (*end != '\0') return false;
+
+  v = (float)x;
+  return true;
+}
+
 static bool parse2f(const char* s, float& a, float& b) {
   while (*s == ' ' || *s == '\t') s++;
 
@@ -175,42 +189,48 @@ static void handleLine(char* s) {
   // Parse Turn & Pick Command Given turn angle (assuming motor stop command sent right before this)
 
   if (c == 'T' || c == 't') {
-    int d = 0;  // Degree turn command amount
-    if (parse1i(s, d)){
+    float d = 0.0f;
+    if (parse1f(s, d)) {
+      hardStop();
+      lastCmdMs = millis();
       driveMode = DriveMode::TARGET_PICK;
-      turnDegrees((float)d);
 
-      // Servo Picking
-      if (sc.pickSequence() == true) {
-        Serial.print("OK T ");
-        Serial.print(d);
+      turnDegrees(d);
+      bool ok_pick = sc.pickSequence();
+
+      lastCmdMs = millis();
+
+      if (ok_pick) {
+        Serial.print("PICK_DONE ");
+        Serial.println(d, 2);
+      } else {
+        Serial.println("ERR PICK");
       }
-
     } else {
-      Serial.print("ERR T ");
+      Serial.print("ERR T s='");
       Serial.print(s);
       Serial.println("'");
     }
-
     return;
   }
 
-  // Parse Dropoff Command (safe zone detected) (assuming motor stop command sent right before this)
-
   if (c == 'D' || c == 'd') {
+    hardStop();
+    lastCmdMs = millis();
     driveMode = DriveMode::SAFE_ZONE_DROP;
-    dropOff(0);   // +ve or -ve float number to tune offset via experimentation
-    
-    // Servo Dropoff
-    if (sc.placeSequence() == true) {
-      Serial.print("OK D");
+
+    dropOff(0.0f);
+    bool ok_drop = sc.placeSequence();
+
+    lastCmdMs = millis();
+
+    if (ok_drop) {
+      Serial.println("DROP_DONE");
     } else {
-      Serial.print("ERR D s='");
-      Serial.print(s);
-      Serial.println("'");
+      Serial.println("ERR DROP");
     }
-  
-    return;         // Continue line following
+
+    return;
   }
 
   if (c == 'S' || c == 's') {
@@ -231,7 +251,7 @@ static void handleLine(char* s) {
     } else {
       Serial.print("ERR E s='");
       Serial.print(s);
-      Serial.println("'");
+      Serial.println("'          ");
     }
     return;
   }

@@ -386,13 +386,18 @@ def main():
                     v_cmd = 0.0
 
                     if not pickup_sent:
+                        last_ack = None
+                        io.write("S\n")
                         io.write(f"T {pending_turn_angle:.2f}\n")
                         pickup_sent = True
 
-                    pickup_done = (last_ack == "PICK_DONE")
-                    if pickup_done:
-                        print("pickup acknowledged")
-                        # sm.next()
+                    if last_ack:
+                        if last_ack.startswith("PICK_DONE"):
+                            print("pickup acknowledged:", last_ack)
+                            sm.next()
+                        elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
+                            print("pickup failed:", last_ack)
+                            sm.transition_to(State.FAULT)
 
                 elif sm.state == State.FIND_SAFETY:
                     if safety_found:
@@ -422,8 +427,18 @@ def main():
                     v_cmd = 0.0
 
                     if not dropoff_sent:
-                        io.write(f"T {pending_turn_angle:.2f}\n")
+                        last_ack = None
+                        io.write("S\n")
+                        io.write("D\n")
                         dropoff_sent = True
+
+                    if last_ack:
+                        if last_ack.startswith("DROP_DONE"):
+                            print("dropoff acknowledged")
+                            sm.next()
+                        elif last_ack.startswith("ERR DROP") or last_ack.startswith("ERR D"):
+                            print("dropoff failed:", last_ack)
+                            sm.transition_to(State.FAULT)
 
                 elif sm.state == State.RETURN:
                     halted, yaw_cmd, v_cmd, line_lost_since, pd_inc = update_line_follow(
