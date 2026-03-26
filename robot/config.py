@@ -18,9 +18,9 @@ class Config:
 
     # Color Thresholds
     RED_LOWER1 = (0, 120, 90)
-    RED_UPPER1 = (8, 255, 255)
-    RED_LOWER2 = (170, 120, 90)
-    RED_UPPER2 = (179, 255, 255)
+    RED_UPPER1 = (20, 255, 255)
+    RED_LOWER2 = (160, 120, 90)
+    RED_UPPER2 = (180, 255, 255)
     BLUE_LOWER = (100, 150, 0)
     BLUE_UPPER = (140, 255, 255)
     GREEN_LOWER = (40, 70, 70)
@@ -75,7 +75,7 @@ class Config:
     BULLSEYE_ALIGN_KP = 0.01
     BULLSEYE_DY_KP = 0.01
     BULLSEYE_FORWARD_ANGLE_GATE_DEG = 8.0
-    BULLSEYE_CREEP_MIN = 0.03
+    BULLSEYE_CREEP_MIN = 0.00
     BULLSEYE_CREEP_MAX = 0.06
     
     # Control - Velocity
