@@ -315,7 +315,7 @@ def main():
                         halted = False
 
                         cy = bullseye_center[1] if bullseye_center is not None else None
-                        dy = cfg.BULLSEYE_PICKUP_Y - cy if cy is not None else None
+                        dy = cy - cfg.BULLSEYE_PICKUP_Y if cy is not None else None
 
                         angle_ok = (
                             bullseye_angle_deg is not None

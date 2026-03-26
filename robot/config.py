@@ -39,7 +39,7 @@ class Config:
     MORPH_K = 5
     YREF_FRAC = 0.85
     MAX_ABS_DEG_FROM_VERTICAL = 60.0
-    BULLSEYE_ANGLE_TOL_DEG = 4.0
+    BULLSEYE_ANGLE_TOL_DEG = 10.0
     BULLSEYE_PICKUP_Y = 340
 
     # Safezone stuff
