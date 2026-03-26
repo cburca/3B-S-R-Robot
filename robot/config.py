@@ -66,15 +66,17 @@ class Config:
     DT_OUTER = 1.0 / CAM_FPS # ~0.033s
     INNER_HZ = 150.0
     DT_INNER = 1.0 / INNER_HZ
-    MAX_RUN_S = 10.0
+    MAX_RUN_S = 1000
     LINE_LOST_TIMEOUT = 1.5
     
     # Control - State Machine
     START_DELAY_S = 1.0
     BULLSEYE_LOST_TIMEOUT = 0.4
     BULLSEYE_ALIGN_KP = 0.01
+    BULLSEYE_DY_KP = 0.01
     BULLSEYE_FORWARD_ANGLE_GATE_DEG = 8.0
-    BULLSEYE_CREEP_SPEED = 0.05
+    BULLSEYE_CREEP_MIN = 0.03
+    BULLSEYE_CREEP_MAX = 0.06
     
     # Control - Velocity
     V_SLEW_UP = 0.25 
@@ -86,7 +88,7 @@ class Config:
     YAW_SLEW = 0.0
     WHEEL_OMEGA_LIMIT = 10
     OFFSET_TO_ANGLE_GAIN = 0.001
-    KP_THETA = 2.1
+    KP_THETA = 2.2
     KD_THETA = 0.005
     U_YAW_LIMIT = 1.0
     
