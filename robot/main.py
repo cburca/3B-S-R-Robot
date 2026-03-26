@@ -332,7 +332,24 @@ def main():
                             halted = True
                             yaw_cmd = 0.0
                             v_cmd = 0.0
-                            sm.next()
+                            
+                            if not pickup_sent:
+                                last_ack = None
+                                io.write("S\n")
+                                io.write(f"T {pending_turn_angle:.2f}\n")
+                                pickup_sent = True
+
+                            while not last_ack:
+                                ack = io.read()
+                                if ack:
+                                    last_ack = ack.strip()
+
+                            if last_ack.startswith("PICK_DONE"):
+                                print("pickup acknowledged:", last_ack)
+                                sm.transition_to(State.FIND_SAFETY)
+                            elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
+                                print("pickup failed:", last_ack)
+                                sm.transition_to(State.FAULT)
                         else:
                             if bullseye_angle_deg is not None and not angle_ok:
                                 yaw_target = clamp(
@@ -380,24 +397,24 @@ def main():
                         if now - bullseye_lost_since >= bullseye_lost_timeout:
                             sm.transition_to(State.DONE)
 
-                elif sm.state == State.RETRIEVAL:
-                    halted = True
-                    yaw_cmd = 0.0
-                    v_cmd = 0.0
+                # elif sm.state == State.RETRIEVAL:
+                #     halted = True
+                #     yaw_cmd = 0.0
+                #     v_cmd = 0.0
 
-                    if not pickup_sent:
-                        last_ack = None
-                        io.write("S\n")
-                        io.write(f"T {pending_turn_angle:.2f}\n")
-                        pickup_sent = True
+                #     if not pickup_sent:
+                #         last_ack = None
+                #         io.write("S\n")
+                #         io.write(f"T {pending_turn_angle:.2f}\n")
+                #         pickup_sent = True
 
-                    if last_ack:
-                        if last_ack.startswith("PICK_DONE"):
-                            print("pickup acknowledged:", last_ack)
-                            sm.next()
-                        elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
-                            print("pickup failed:", last_ack)
-                            sm.transition_to(State.FAULT)
+                #     if last_ack:
+                #         if last_ack.startswith("PICK_DONE"):
+                #             print("pickup acknowledged:", last_ack)
+                #             sm.next()
+                #         elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
+                #             print("pickup failed:", last_ack)
+                #             sm.transition_to(State.FAULT)
 
                 elif sm.state == State.FIND_SAFETY:
                     if safety_found:
