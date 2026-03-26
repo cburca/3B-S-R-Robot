@@ -221,7 +221,7 @@ def main():
                         pickup_sent = True
                     
                     if last_ack:
-                        if "PICK_DONE" in last_ack:
+                        if "PICK_DONE " in last_ack:
                             print("Pickup complete! Resuming line following (SEARCHING)...")
                             sm.transition_to(TEST_FLOW[sm.state])
                         elif "ERR" in last_ack:
