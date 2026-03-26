@@ -7,10 +7,7 @@
 #include "encoders.h"
 #include "control.h"
 #include "maneuvers.h"
-<<<<<<< HEAD
-=======
 #include "servo_control.h"
->>>>>>> integration
 
 // Objects
 Motors motors;
