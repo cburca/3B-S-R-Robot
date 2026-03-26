@@ -13,7 +13,7 @@ static int32_t computeTurnCounts(float turn_deg) {
   return (int32_t)(counts + 0.5f);
 }
 
-void turnDegrees(float turn_deg) {
+void turnDegrees(float turn_deg, Motors& motors, Encoders& encoders) {
     int32_t start_left, start_right;
     encoders.readCounts(start_left, start_right);
 
@@ -24,7 +24,7 @@ void turnDegrees(float turn_deg) {
 
     while (running) {
         uint32_t now = millis();
-        if (now - last_sample_ms < SAMPLE_PERIOD_MS) {};
+        if (now - last_sample_ms < SAMPLE_PERIOD_MS) {continue;}
         last_sample_ms = now;
 
         int32_t left_count, right_count;
@@ -66,7 +66,7 @@ static int32_t computeDropOffCounts(float offset) {
   return (int32_t)(counts);
 }
 
-void dropOff(float tunable_offset) {
+void dropOff(float tunable_offset, Motors& motors, Encoders& encoders) {
   int32_t start_left, start_right;
     encoders.readCounts(start_left, start_right);
 
@@ -77,7 +77,7 @@ void dropOff(float tunable_offset) {
 
     while (running) {
         uint32_t now = millis();
-        if (now - last_sample_ms < SAMPLE_PERIOD_MS) {};
+        if (now - last_sample_ms < SAMPLE_PERIOD_MS) {continue;}
         last_sample_ms = now;
 
         int32_t left_count, right_count;
