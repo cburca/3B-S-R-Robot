@@ -6,6 +6,9 @@ class HeadingPD:
         self.u_limit = u_limit
         self.prev_err = 0.0
 
+    def reset(self):
+        self.prev_err = 0.0
+
     def step(self, theta_ref_rad, theta_rad):
         err = theta_ref_rad - theta_rad
         derr = (err - self.prev_err) / self.dt

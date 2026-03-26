@@ -222,6 +222,10 @@ def main():
     camera_query_count = 0
     pd_update_count = 0
     usb_send_count = 0
+    
+    # near your other setup vars
+    post_pick_settle_s = getattr(cfg, "POST_PICK_SETTLE_S", 0.35)
+    resume_find_safety_at = None
 
     try:
         while True:
@@ -346,8 +350,22 @@ def main():
 
                             if last_ack.startswith("PICK_DONE"):
                                 print("pickup acknowledged:", last_ack)
+<<<<<<< HEAD
                                 for _ in range(60):
                                     cap.read()
+=======
+
+                                halted = True
+                                yaw_cmd = 0.0
+                                v_cmd = 0.0
+                                line_lost_since = None
+                                bullseye_lost_since = None
+
+                                if hasattr(outer, "reset"):
+                                    outer.reset()
+
+                                resume_find_safety_at = now + post_pick_settle_s
+>>>>>>> origin/integration
                                 sm.transition_to(State.FIND_SAFETY)
                             elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
                                 print("pickup failed:", last_ack)
@@ -419,12 +437,20 @@ def main():
                 #             sm.transition_to(State.FAULT)
 
                 elif sm.state == State.FIND_SAFETY:
-                    if safety_found:
+                    if resume_find_safety_at is not None and now < resume_find_safety_at:
+                        halted = True
+                        yaw_cmd = 0.0
+                        v_cmd = 0.0
+
+                    elif safety_found:
+                        resume_find_safety_at = None
                         halted = True
                         yaw_cmd = 0.0
                         v_cmd = 0.0
                         sm.next()
+
                     else:
+                        resume_find_safety_at = None
                         halted, yaw_cmd, v_cmd, line_lost_since, pd_inc = update_line_follow(
                             cfg,
                             outer,
@@ -439,7 +465,7 @@ def main():
                             yaw_slew,
                         )
                         pd_update_count += pd_inc
-                        
+
                         if line_lost_since is not None and now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
                             print("Line lost while finding safety. Ending run.")
                             sm.transition_to(State.DONE)
