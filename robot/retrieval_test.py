@@ -152,7 +152,7 @@ def main():
 
     line_vision = LineDetector(cfg)
     outer = HeadingPD(cfg.KP_THETA, cfg.KD_THETA, dt=cfg.DT_OUTER, u_limit=cfg.U_YAW_LIMIT)
-    mixer = DiffDriveMixer(cfg.r, cfg.l)
+    mixer = DiffDriveMixer(cfg.r, cfg.L)
 
     v_cmd = 0.0
     yaw_cmd = 0.0
