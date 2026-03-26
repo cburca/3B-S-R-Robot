@@ -7,11 +7,16 @@
 #include "encoders.h"
 #include "control.h"
 #include "maneuvers.h"
+<<<<<<< HEAD
+=======
+#include "servo_control.h"
+>>>>>>> integration
 
 // Objects
 Motors motors;
 Encoders encoders;
 MotorController ctrl;
+ServoControl sc;
 
 // State
 enum class DriveMode : uint8_t { CLOSED_LOOP_VEL, OPEN_LOOP_PWM, TARGET_PICK, SAFE_ZONE_DROP}; // DISCUSS EXTRA TWO DRIVE MODES
@@ -41,6 +46,20 @@ static inline bool isSIX(const char* s) {
          (s[1] == 'I' || s[1] == 'i') &&
          (s[2] == 'X' || s[2] == 'x') &&
          (s[3] == '\0');
+}
+
+static bool parse1f(const char* s, float& v) {
+  while (*s == ' ' || *s == '\t') s++;
+
+  char* end;
+  double x = strtod(s, &end);
+  if (end == s) return false;
+
+  while (*end == ' ' || *end == '\t') end++;
+  if (*end != '\0') return false;
+
+  v = (float)x;
+  return true;
 }
 
 static bool parse2f(const char* s, float& a, float& b) {
@@ -173,35 +192,48 @@ static void handleLine(char* s) {
   // Parse Turn & Pick Command Given turn angle (assuming motor stop command sent right before this)
 
   if (c == 'T' || c == 't') {
-    int d = 0;  // Degree turn command amount
-    if (parse1i(s, d)){
+    float d = 0.0f;
+    if (parse1f(s, d)) {
+      hardStop();
+      lastCmdMs = millis();
       driveMode = DriveMode::TARGET_PICK;
-      turnDegrees((float)d);
-      // Lower Servo
-      // Extend Syringe
-      // Raise Servo
-    
-      Serial.print("OK T ");
-      Serial.print(d);
+
+      turnDegrees(d, motors, encoders);
+      bool ok_pick = sc.pickSequence();
+
+      lastCmdMs = millis();
+
+      if (ok_pick) {
+        Serial.print("PICK_DONE ");
+        Serial.println(d, 2);
+      } else {
+        Serial.println("ERR PICK");
+      }
     } else {
-      Serial.print("ERR T ");
+      Serial.print("ERR T s='");
       Serial.print(s);
       Serial.println("'");
     }
     return;
   }
 
-  // Parse Dropoff Command (safe zone detected) (assuming motor stop command sent right before this)
-
   if (c == 'D' || c == 'd') {
+    hardStop();
+    lastCmdMs = millis();
     driveMode = DriveMode::SAFE_ZONE_DROP;
-    dropOff(0);   // +ve or -ve float number to tune offset via experimentation
-    // Lower Servo
-    // Release Syringe
-    // Raise Servo
 
-    Serial.print("OK D");
-    return;         // Continue line following
+    dropOff(0.0f, motors, encoders);
+    bool ok_drop = sc.placeSequence();
+
+    lastCmdMs = millis();
+
+    if (ok_drop) {
+      Serial.println("DROP_DONE");
+    } else {
+      Serial.println("ERR DROP");
+    }
+
+    return;
   }
 
   if (c == 'S' || c == 's') {
@@ -222,7 +254,7 @@ static void handleLine(char* s) {
     } else {
       Serial.print("ERR E s='");
       Serial.print(s);
-      Serial.println("'");
+      Serial.println("'          ");
     }
     return;
   }
@@ -252,14 +284,7 @@ static void pollSerial() {
 void setup() {
   Serial.begin(BAUD);
 
-  // Servo raise
-  static constexpr uint8_t SERVO_LIFT_PIN = 13;
-  Servo liftServo;
-  Servo syringeServo;
-  syringeServo.attach(12);
-  liftServo.attach(SERVO_LIFT_PIN);
-  syringeServo.write(100);
-  liftServo.write(150);
+  // 
 
 
   encoders.begin(ENC_L_A, ENC_L_B, ENC_L_SIGN,
@@ -274,6 +299,8 @@ void setup() {
 
   ctrl.begin(&encoders, &motors, CTRL_HZ);
   ctrl.setTargets(0, 0);
+
+  sc.begin();
 
   hardStop();
   lastCmdMs = millis();

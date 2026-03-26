@@ -17,13 +17,21 @@ class Config:
     RUN_TIME_S = 20.0
 
     # Color Thresholds
-    RED_LOWER1 = (0, 100, 100)
-    RED_UPPER1 = (10, 255, 255)
-    RED_LOWER2 = (160, 100, 100)
+    RED_LOWER1 = (0, 120, 90)
+    RED_UPPER1 = (20, 255, 255)
+    RED_LOWER2 = (160, 120, 90)
     RED_UPPER2 = (180, 255, 255)
+    BLUE_LOWER = (100, 150, 0)
+    BLUE_UPPER = (140, 255, 255)
+    GREEN_LOWER = (40, 70, 70)
+    GREEN_UPPER = (85, 255, 255)
+    
+    KERNEL_SIZE = 5
+    MIN_CIRCLE_AREA = 100
+    MIN_BLUE_AREA = 1000
 
     # Image Processing
-    MIN_MASK_AREA = 300
+    MIN_MASK_AREA = 400
     CANNY1, CANNY2 = 50, 150
     HOUGH_THRESH = 30
     MIN_LINE_LEN = 25
@@ -31,10 +39,19 @@ class Config:
     MORPH_K = 5
     YREF_FRAC = 0.85
     MAX_ABS_DEG_FROM_VERTICAL = 60.0
+    BULLSEYE_ANGLE_TOL_DEG = 10.0
+    BULLSEYE_PICKUP_Y = 340
+
+    # Safezone stuff
+    SAFEZONE_Y_MIN = 0.05      # top of image
+    SAFEZONE_Y_MAX = 0.25      # thickness of detection band
+
+    SAFEZONE_MIN_PIXELS = 300   # left/right threshold
+    SAFEZONE_MAX_CENTER_PIXELS = 100  # must stay low (no green in center)
 
     # Debug
-    DEBUG_SHOW = False
-    DEBUG_DRAW = False
+    DEBUG_SHOW = True
+    DEBUG_DRAW = True
 
     # Robot Geometry
     r = 0.04
@@ -49,9 +66,18 @@ class Config:
     DT_OUTER = 1.0 / CAM_FPS # ~0.033s
     INNER_HZ = 150.0
     DT_INNER = 1.0 / INNER_HZ
-    MAX_RUN_S = 10.0
+    MAX_RUN_S = 1000
     LINE_LOST_TIMEOUT = 1.5
-
+    
+    # Control - State Machine
+    START_DELAY_S = 1.0
+    BULLSEYE_LOST_TIMEOUT = 0.4
+    BULLSEYE_ALIGN_KP = 0.01
+    BULLSEYE_DY_KP = 0.01
+    BULLSEYE_FORWARD_ANGLE_GATE_DEG = 8.0
+    BULLSEYE_CREEP_MIN = 0.00
+    BULLSEYE_CREEP_MAX = 0.06
+    
     # Control - Velocity
     V_SLEW_UP = 0.25 
     V_SLEW_DOWN = 0.75 
@@ -62,6 +88,10 @@ class Config:
     YAW_SLEW = 0.0
     WHEEL_OMEGA_LIMIT = 10
     OFFSET_TO_ANGLE_GAIN = 0.001
-    KP_THETA = 2.1
+    KP_THETA = 2.2
     KD_THETA = 0.005
     U_YAW_LIMIT = 1.0
+    
+    # Control - Bullseye Pickup
+    BULLSEYE_ANGLE_TOL_DEG = 5.0
+    BULLSEYE_PICKUP_Y = 300
