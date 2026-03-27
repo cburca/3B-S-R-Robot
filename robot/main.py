@@ -117,9 +117,7 @@ def update_line_follow(
             yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
         else:
             yaw_cmd = yaw_target
-        
 
-        # speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
         v_target = cfg.vmax
         v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
         v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
@@ -151,8 +149,6 @@ def main():
     yaw_slew = float(cfg.YAW_SLEW)
     w_lim = float(cfg.WHEEL_OMEGA_LIMIT)
     max_run_s = float(getattr(cfg, "MAX_RUN_S", getattr(cfg, "RUN_TIME_S", 20.0)))
-
-    print("max angular vel is " + str(w_lim))
 
     cap = cv.VideoCapture(cfg.CAM_INDEX)
     cap.set(cv.CAP_PROP_FRAME_WIDTH, cfg.CAM_W)
@@ -191,7 +187,7 @@ def main():
     ok = False
     while time.time() - t0 < 5.0:
         r = io.read()
-        if r == "SEVEN":
+        if r and r.strip() == "SEVEN":
             ok = True
             print("handshake completed")
             break
@@ -216,11 +212,14 @@ def main():
 
     pickup_sent = False
     dropoff_sent = False
+    place_only_drop = False
     pending_turn_angle = 0.0
 
     start_delay_s = getattr(cfg, "START_DELAY_S", 1.0)
     bullseye_lost_timeout = getattr(cfg, "BULLSEYE_LOST_TIMEOUT", 0.4)
     bullseye_align_kp = getattr(cfg, "BULLSEYE_ALIGN_KP", 0.01)
+    post_pick_settle_s = float(getattr(cfg, "POST_PICK_SETTLE_S", 0.0))
+    resume_find_safety_at = None
 
     t_next_inner = time.perf_counter()
     t_next_outer = time.perf_counter()
@@ -230,10 +229,6 @@ def main():
     camera_query_count = 0
     pd_update_count = 0
     usb_send_count = 0
-    
-    # near your other setup vars
-    post_pick_settle_s = getattr(cfg, "POST_PICK_SETTLE_S", 0)
-    resume_find_safety_at = None
 
     try:
         while True:
@@ -247,10 +242,12 @@ def main():
                 if sm.state != last_state:
                     print("STATE:", sm.state.name)
 
-                    if sm.state != State.RETRIEVAL:
+                    if sm.state != State.BULLSEYE_LINEUP:
                         pickup_sent = False
+
                     if sm.state != State.DEPOSITION:
                         dropoff_sent = False
+                        place_only_drop = False
 
                     bullseye_lost_since = None
                     last_state = sm.state
@@ -262,7 +259,6 @@ def main():
                 line_theta_deg = None
 
                 bullseye_found = False
-                bullseye_offset_px = None
                 bullseye_angle_deg = None
                 pickup_ready = False
                 bullseye_center = None
@@ -281,7 +277,6 @@ def main():
                     elif sm.state == State.BULLSEYE_LINEUP:
                         bullseye_result = run_detector(bullseye_vision, ctx)
                         bullseye_found = bool(getattr(bullseye_result, "found", False))
-                        bullseye_offset_px = getattr(bullseye_result, "offset_px", None)
                         bullseye_angle_deg = getattr(bullseye_result, "angle_deg", None)
                         pickup_ready = bool(getattr(bullseye_result, "pickup_ready", False))
                         bullseye_center = getattr(bullseye_result, "center", None)
@@ -322,7 +317,28 @@ def main():
                         pd_update_count += pd_inc
 
                 elif sm.state == State.BULLSEYE_LINEUP:
-                    if bullseye_found:
+                    if pickup_sent:
+                        halted = True
+                        yaw_cmd = 0.0
+                        v_cmd = 0.0
+
+                        if last_ack:
+                            if last_ack.startswith("PICK_DONE"):
+                                print("pickup acknowledged:", last_ack)
+                                line_lost_since = None
+                                bullseye_lost_since = None
+
+                                if hasattr(outer, "reset"):
+                                    outer.reset()
+
+                                resume_find_safety_at = time.perf_counter() + post_pick_settle_s
+                                sm.transition_to(State.FIND_SAFETY)
+
+                            elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
+                                print("pickup failed:", last_ack)
+                                sm.transition_to(State.FAULT)
+
+                    elif bullseye_found:
                         bullseye_lost_since = None
                         halted = False
 
@@ -341,57 +357,22 @@ def main():
                             )
                             pending_turn_angle = wrap_deg(180.0 - final_bullseye_angle_deg)
 
-                            print("bullseye lined up")
                             halted = True
                             yaw_cmd = 0.0
                             v_cmd = 0.0
-                            
-                            if not pickup_sent:
-                                pickup_sent = True
-                                halted = True
-                                halted_prev = True
-                                last_ack = None
+                            pickup_sent = True
+                            halted_prev = True
+                            last_ack = None
 
-                                try:
-                                    io.ser.reset_input_buffer()
-                                except Exception:
-                                    pass
+                            try:
+                                io.ser.reset_input_buffer()
+                            except Exception:
+                                pass
 
-                                io.write("S\n")
-                                io.write(f"T {pending_turn_angle:.2f}\n")
-                                print("pickup sent")
+                            io.write("S\n")
+                            io.write(f"T {pending_turn_angle:.2f}\n")
+                            print("pickup sent")
 
-                            while not last_ack:
-                                ack = io.read()
-                                if not ack:
-                                    continue
-
-                                ack = ack.strip()
-
-                                if is_terminal_action_ack(ack):
-                                    last_ack = ack
-                                else:
-                                    # ignore ACK_S, ACK_V, or any other non-terminal reply
-                                    continue
-
-                            if last_ack.startswith("PICK_DONE"): # MUST HAVE SPACE AFTER PICK_DONE
-                                print("pickup acknowledged:", last_ack)
-
-                                halted = True
-                                yaw_cmd = 0.0
-                                v_cmd = 0.0
-                                line_lost_since = None
-                                bullseye_lost_since = None
-
-                                if hasattr(outer, "reset"):
-                                    outer.reset()
-                                resume_find_safety_at = now + post_pick_settle_s
-                                sm.transition_to(State.FIND_SAFETY)
-                            elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
-                                print("pickup failed:", last_ack)
-                                sm.transition_to(State.FAULT)
-                            else:
-                                print(f"unepexcted ack: {last_ack}")
                         else:
                             if bullseye_angle_deg is not None and not angle_ok:
                                 yaw_target = clamp(
@@ -429,7 +410,6 @@ def main():
                             else:
                                 v_cmd = 0.0
                     else:
-                        print("bullseye lost")
                         halted = True
                         yaw_cmd = 0.0
                         v_cmd = 0.0
@@ -439,26 +419,6 @@ def main():
 
                         if now - bullseye_lost_since >= bullseye_lost_timeout:
                             sm.transition_to(State.DONE)
-                            print("sm set to DONE")
-
-                # elif sm.state == State.RETRIEVAL:
-                #     halted = True
-                #     yaw_cmd = 0.0
-                #     v_cmd = 0.0
-
-                #     if not pickup_sent:
-                #         last_ack = None
-                #         io.write("S\n")
-                #         io.write(f"T {pending_turn_angle:.2f}\n")
-                #         pickup_sent = True
-
-                #     if last_ack:
-                #         if last_ack.startswith("PICK_DONE"):
-                #             print("pickup acknowledged:", last_ack)
-                #             sm.next()
-                #         elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
-                #             print("pickup failed:", last_ack)
-                #             sm.transition_to(State.FAULT)
 
                 elif sm.state == State.FIND_SAFETY:
                     if resume_find_safety_at is not None and now < resume_find_safety_at:
@@ -471,6 +431,7 @@ def main():
                         halted = True
                         yaw_cmd = 0.0
                         v_cmd = 0.0
+                        place_only_drop = False
                         sm.next()
 
                     else:
@@ -491,13 +452,14 @@ def main():
                         pd_update_count += pd_inc
 
                         if line_lost_since is not None and now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
-                            print("Line lost while finding safety. Starting dropoff.")
+                            print("Line lost while finding safety. Starting place-only dropoff.")
                             halted = True
                             yaw_cmd = 0.0
                             v_cmd = 0.0
                             line_lost_since = None
                             last_ack = None
                             dropoff_sent = False
+                            place_only_drop = True
                             sm.transition_to(State.DEPOSITION)
 
                 elif sm.state == State.DEPOSITION:
@@ -508,7 +470,7 @@ def main():
                     if not dropoff_sent:
                         last_ack = None
                         io.write("S\n")
-                        io.write("D\n")
+                        io.write("P\n" if place_only_drop else "D\n")
                         dropoff_sent = True
 
                     if last_ack:
@@ -544,6 +506,7 @@ def main():
                     v_cmd = 0.0
                     hard_stop(io)
                     break
+
                 else:
                     halted = True
                     yaw_cmd = 0.0
@@ -594,6 +557,9 @@ def main():
                     else:
                         if ack.startswith("ERR"):
                             print("ARDUINO:", ack)
+
+                while t_next_inner <= now:
+                    t_next_inner += cfg.DT_INNER
 
     finally:
         total_runtime = time.perf_counter() - stats_start
