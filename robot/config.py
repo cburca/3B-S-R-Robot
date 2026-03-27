@@ -17,14 +17,14 @@ class Config:
     RUN_TIME_S = 20.0
 
     # Color Thresholds
-    RED_LOWER1 = (0, 120, 90)
+    RED_LOWER1 = (0, 90, 100)
     RED_UPPER1 = (20, 255, 255)
-    RED_LOWER2 = (160, 120, 90)
+    RED_LOWER2 = (160, 22, 75)
     RED_UPPER2 = (180, 255, 255)
     BLUE_LOWER = (100, 150, 0)
     BLUE_UPPER = (140, 255, 255)
-    GREEN_LOWER = (40, 70, 70)
-    GREEN_UPPER = (85, 255, 255)
+    GREEN_LOWER = (64, 75, 61)
+    GREEN_UPPER = (141, 225, 255)
     
     KERNEL_SIZE = 5
     MIN_CIRCLE_AREA = 100
