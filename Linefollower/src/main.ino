@@ -231,7 +231,7 @@ static void handleLine(char* s) {
     lastCmdMs = millis();
     driveMode = DriveMode::SAFE_ZONE_DROP;
 
-    dropOff(motors, encoders); // currently not using extra tunable offset, just use config DROPOFF_DELTA
+    dropOff(0.0f, motors, encoders);
     bool ok_drop = sc.placeSequence();
 
     lastCmdMs = millis();
