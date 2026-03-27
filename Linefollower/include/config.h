@@ -60,7 +60,7 @@ static const float TRACK_WIDTH_M  = 0.179f;   // meters, wheel-center to wheel-c
 static const uint32_t SAMPLE_PERIOD_MS = 10;
 
 static const float DROPOFF_DELTA = 0.250f;      // Dist from camera lense to center of balloon, in meters - JUST AN ESTIMATE, get from CAD + physical measurements
-static const float TUNABLE_ANG_OFFSET = 5.0f; // degrees, positive is CCW, negative is CW. Adjust to correct for systematic heading errors.
+static const float TUNABLE_ANG_OFFSET = 0.0f; // degrees, positive is CCW, negative is CW. Adjust to correct for systematic heading errors.
 static const float TUNABLE_LIN_OFFSET = 0.05f;  // meters
 
 

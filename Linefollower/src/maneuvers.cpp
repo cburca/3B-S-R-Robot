@@ -29,32 +29,31 @@ static int32_t computeDropOffCounts(float offset_m) {
     return (int32_t)(counts + 0.5f);
 }
 
-bool turnDegrees(float turn_deg, Motors& motors, Encoders& encoders) {
-    if (fabsf(turn_deg) <= 1e-3f) {
+void turnDegrees(float turn_deg, Motors& motors, Encoders& encoders) {
+    if (fabsf(turn_deg + TUNABLE_ANG_OFFSET) <= 1e-3f) {
         motors.stop();
-        return true;
+        return;
     }
 
     int32_t start_left, start_right;
     encoders.readCounts(start_left, start_right);
 
-    const int8_t dir = (turn_deg >= 0.0f) ? 1 : -1;
-    const int32_t target_counts = computeTurnCounts(turn_deg);
+    const int8_t dir = ((turn_deg + TUNABLE_ANG_OFFSET)>= 0.0f) ? 1 : -1;
+    const int32_t target_counts = computeTurnCounts(turn_deg + TUNABLE_ANG_OFFSET);
 
     const uint32_t start_ms = millis();
     uint32_t last_sample_ms = start_ms;
 
     while (true) {
         uint32_t now = millis();
-
         if (now - last_sample_ms < SAMPLE_PERIOD_MS) {
             continue;
         }
         last_sample_ms = now;
 
-        if (now - start_ms > TURN_TIMEOUT_MS) {
+        if (now - start_ms > SAMPLE_PERIOD_MS) {
             motors.stop();
-            return false;
+            return;
         }
 
         int32_t left_count, right_count;
@@ -87,17 +86,16 @@ bool turnDegrees(float turn_deg, Motors& motors, Encoders& encoders) {
 
         if (error_left <= TOLERANCE && error_right <= TOLERANCE) {
             motors.stop();
-            return true;
+            return;
         }
     }
 }
-bool dropOff(Motors& motors, Encoders& encoders) {
+
+void dropOff(Motors& motors, Encoders& encoders) {
     int32_t start_left, start_right;
     encoders.readCounts(start_left, start_right);
 
-    float tunable_offset = TUNABLE_LIN_OFFSET; // Adjust for systematic errors
-
-    const int32_t target_counts = computeDropOffCounts(tunable_offset);
+    const int32_t target_counts = computeDropOffCounts(TUNABLE_LIN_OFFSET);
 
     const uint32_t start_ms = millis();
     uint32_t last_sample_ms = start_ms;
@@ -111,7 +109,7 @@ bool dropOff(Motors& motors, Encoders& encoders) {
 
         if (now - start_ms > SAMPLE_PERIOD_MS) {
             motors.stop();
-            return false;
+            return;
         }
 
         int32_t left_count, right_count;
@@ -144,7 +142,7 @@ bool dropOff(Motors& motors, Encoders& encoders) {
 
         if (error_left <= TOLERANCE && error_right <= TOLERANCE) {
             motors.stop();
-            return true;
+            return;
         }
     }
 }
