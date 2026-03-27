@@ -260,58 +260,112 @@ class SafezoneDetector:
         k = int(cfg.MORPH_K)
         self.kernel = np.ones((k, k), dtype=np.uint8)
 
-    def detect(self, ctx: FrameContext) -> DetectionResult:
-        frame = ctx.frame
-        h, w = frame.shape[:2]
+def detect(self, ctx: FrameContext) -> DetectionResult:
+    frame = ctx.frame
+    h, w = frame.shape[:2]
 
-        # --- GREEN MASK ---
-        mask = cv.inRange(ctx.hsv, self.green_lower, self.green_upper)
-        mask = cv.morphologyEx(mask, cv.MORPH_OPEN, self.kernel, iterations=1)
-        mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, self.kernel, iterations=2)
+    # --- GREEN MASK ---
+    mask = cv.inRange(ctx.hsv, self.green_lower, self.green_upper)
+    mask = cv.morphologyEx(mask, cv.MORPH_OPEN, self.kernel, iterations=1)
+    mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, self.kernel, iterations=2)
 
-        # --- REGION OF INTEREST (top band) ---
-        y_top = int(self.cfg.SAFEZONE_Y_MIN * h)
-        y_bot = int(self.cfg.SAFEZONE_Y_MAX * h)
+    # --- REGION OF INTEREST (top band) ---
+    y_top = int(self.cfg.SAFEZONE_Y_MIN * h)
+    y_bot = int(self.cfg.SAFEZONE_Y_MAX * h)
 
-        left   = mask[y_top:y_bot, :w//3]
-        center = mask[y_top:y_bot, w//3:2*w//3]
-        right  = mask[y_top:y_bot, 2*w//3:]
+    # Crop to ROI for pixel counts AND line detection
+    roi_mask = mask[y_top:y_bot, :]
+    left   = roi_mask[:, :w//3]
+    center = roi_mask[:, w//3:2*w//3]
+    right  = roi_mask[:, 2*w//3:]
 
-        # --- PIXEL COUNTS ---
-        left_count = cv.countNonZero(left)
-        center_count = cv.countNonZero(center)
-        right_count = cv.countNonZero(right)
+    # --- PIXEL COUNTS (existing) ---
+    left_count = cv.countNonZero(left)
+    center_count = cv.countNonZero(center)
+    right_count = cv.countNonZero(right)
 
-        # --- DETECTION LOGIC ---
-        detected = (
-            left_count  > self.cfg.SAFEZONE_MIN_PIXELS and
-            right_count > self.cfg.SAFEZONE_MIN_PIXELS and
-            center_count < self.cfg.SAFEZONE_MAX_CENTER_PIXELS
+    detected = (
+        left_count  > self.cfg.SAFEZONE_MIN_PIXELS and
+        right_count > self.cfg.SAFEZONE_MIN_PIXELS and
+        center_count < self.cfg.SAFEZONE_MAX_CENTER_PIXELS
+    )
+
+    # --- NEW: GREEN ZONE ANGLE COMPUTATION ---
+    green_angle_deg = None
+    if detected:
+        # Use same Hough + weighting as LineDetector for consistency
+        edges = cv.Canny(roi_mask, self.cfg.CANNY1, self.cfg.CANNY2)
+        lines = cv.HoughLinesP(
+            edges,
+            rho=1, theta=np.pi/180.0,
+            threshold=self.cfg.HOUGH_THRESH//2,  # looser for green
+            minLineLength=self.cfg.MIN_LINE_LEN//2,
+            maxLineGap=self.cfg.MAX_LINE_GAP
         )
+        
+        if lines is not None and len(lines) > 0:
+            # Reuse LineDetector's weighting logic (nearly identical)
+            sum_w, sum_sin, sum_cos = 0.0, 0.0, 0.0
+            y_ref_roi = (y_bot - y_top) // 2  # middle of green ROI
 
-        # --- DEBUG ---
-        debug = {}
-        if self.cfg.DEBUG_SHOW:
-            dbg = frame.copy()
+            for x1, y1, x2, y2 in lines[:, 0, :]:
+                if y2 < y1:  # ensure y1 < y2
+                    x1, y1, x2, y2 = x2, y2, x1, y1
+                
+                dx, dy = float(x2 - x1), float(y2 - y1)
+                length = np.hypot(dx, dy)
+                if length < 1e-6:
+                    continue
+                
+                ang_from_vert = np.degrees(np.arctan2(dx, dy))
+                if abs(ang_from_vert) > self.cfg.MAX_ABS_DEG_FROM_VERTICAL:
+                    continue
+                
+                wgt = length
+                sum_w += wgt
+                rad = np.radians(ang_from_vert)
+                sum_cos += wgt * np.cos(rad)
+                sum_sin += wgt * np.sin(rad)
+            
+            if sum_w > 0:
+                green_angle_deg = -np.degrees(np.arctan2(sum_sin, sum_cos))
 
-            cv.rectangle(dbg, (0, y_top), (w//3, y_bot), (255, 0, 0), 2)
-            cv.rectangle(dbg, (w//3, y_top), (2*w//3, y_bot), (0, 255, 0), 2)
-            cv.rectangle(dbg, (2*w//3, y_top), (w, y_bot), (0, 0, 255), 2)
+    # --- NEW: PERPENDICULAR CHECK ---
+    perpendicular = True
+    if green_angle_deg is not None:
+        # Perpendicular: difference should be ~90° (mod 180° since angles wrap)
+        angle_diff = abs(green_angle_deg - 90.0)  # or -90
+        if angle_diff > 180:
+            angle_diff = 360 - angle_diff
+        perpendicular = angle_diff <= self.cfg.SAFEZONE_ANGLE_TOL_DEG  # add to config
 
-            cv.putText(dbg, f"L:{left_count}", (10, 30),
-                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
-            cv.putText(dbg, f"C:{center_count}", (10, 60),
-                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
-            cv.putText(dbg, f"R:{right_count}", (10, 90),
-                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
+    # Final detection requires perpendicular too
+    detected = detected and perpendicular
 
-            debug["frame"] = dbg
-            debug["mask"] = mask
+    # --- DEBUG (updated) ---
+    debug = {}
+    if self.cfg.DEBUG_SHOW:
+        dbg = frame.copy()
+        cv.rectangle(dbg, (0, y_top), (w//3, y_bot), (255, 0, 0), 2)
+        cv.rectangle(dbg, (w//3, y_top), (2*w//3, y_bot), (0, 255, 0), 2)
+        cv.rectangle(dbg, (2*w//3, y_top), (w, y_bot), (0, 0, 255), 2)
 
-        return DetectionResult(
-            found=detected,
-            debug=debug
-        )
+        cv.putText(dbg, f"L:{left_count} C:{center_count} R:{right_count}", (10, 30),
+                   cv.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
+        cv.putText(dbg, f"G.Ang: {green_angle_deg:.1f}°" if green_angle_deg else "No G.Ang", (10, 60),
+                   cv.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
+        cv.putText(dbg, f"Perp: {'YES' if perpendicular else 'NO'}", (10, 90),
+                   cv.FONT_HERSHEY_SIMPLEX, 0.6, (0,255 if perpendicular else 0,255), 2)
+
+        debug["frame"] = dbg
+        debug["mask"] = mask
+        debug["green_angle_deg"] = green_angle_deg
+
+    return DetectionResult(
+        found=detected,
+        angle_deg=green_angle_deg,  # expose for main.py if needed
+        debug=debug
+    )
 
 class blue_detector:
     

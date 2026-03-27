@@ -70,7 +70,7 @@ def run_detector(detector, ctx):
     )
 
 
-def run_blue_detector(detector, ctx):
+def run_blue_detectfor(detector, ctx):
     if hasattr(detector, "detect"):
         result = detector.detect(ctx)
     elif hasattr(detector, "detect_blue"):
