@@ -95,4 +95,4 @@ class Config:
     # Control - Bullseye Pickup
     BULLSEYE_ANGLE_TOL_DEG = 5.0
     BULLSEYE_PICKUP_Y = 300
-    POST_PICK_SETTLE_S = 2.0
+    POST_PICK_SETTLE_S = 0.5
