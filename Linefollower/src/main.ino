@@ -9,24 +9,23 @@
 #include "maneuvers.h"
 #include "servo_control.h"
 
-// Objects
 Motors motors;
 Encoders encoders;
 MotorController ctrl;
 ServoControl sc;
 
-// State
-enum class DriveMode : uint8_t { CLOSED_LOOP_VEL, OPEN_LOOP_PWM, TARGET_PICK, SAFE_ZONE_DROP}; // DISCUSS EXTRA TWO DRIVE MODES
+enum class DriveMode : uint8_t {
+  CLOSED_LOOP_VEL,
+  OPEN_LOOP_PWM
+};
+
 static DriveMode driveMode = DriveMode::CLOSED_LOOP_VEL;
 
-// For OPEN_LOOP_PWM mode
 static int16_t openL = 0;
 static int16_t openR = 0;
 
-// Watchdog timestamp
 static uint32_t lastCmdMs = 0;
 
-// Serial line buffer
 static char lineBuf[80];
 static uint8_t lineLen = 0;
 
@@ -72,6 +71,9 @@ static bool parse2f(const char* s, float& a, float& b) {
   double db = strtod(end1, &end2);
   if (end2 == end1) return false;
 
+  while (*end2 == ' ' || *end2 == '\t') end2++;
+  if (*end2 != '\0') return false;
+
   a = (float)da;
   b = (float)db;
   return true;
@@ -79,9 +81,14 @@ static bool parse2f(const char* s, float& a, float& b) {
 
 static bool parse1i(const char* s, int& v) {
   while (*s == ' ' || *s == '\t') s++;
+
   char* end;
   long x = strtol(s, &end, 10);
   if (end == s) return false;
+
+  while (*end == ' ' || *end == '\t') end++;
+  if (*end != '\0') return false;
+
   v = (int)x;
   return true;
 }
@@ -99,6 +106,9 @@ static bool parse2i(const char* s, int32_t& a, int32_t& b) {
   long db = strtol(end1, &end2, 10);
   if (end2 == end1) return false;
 
+  while (*end2 == ' ' || *end2 == '\t') end2++;
+  if (*end2 != '\0') return false;
+
   a = (int32_t)da;
   b = (int32_t)db;
   return true;
@@ -108,11 +118,67 @@ static void hardStop() {
   ctrl.setTargets(0, 0);
   ctrl.stop();
   motors.stop();
-  openL = openR = 0;
+  openL = 0;
+  openR = 0;
   driveMode = DriveMode::OPEN_LOOP_PWM;
 }
 
-// Parse one complete line command
+static void startAction() {
+  hardStop();
+  ctrl.resetControlState();
+  lastCmdMs = millis();
+}
+
+static void finishAction() {
+  hardStop();
+  ctrl.resetControlState();
+  lastCmdMs = millis();
+}
+
+static void handleTurnAndPick(float turnDeg) {
+  startAction();
+
+  bool okTurn = turnDegrees(turnDeg, motors, encoders);
+  finishAction();
+
+  if (!okTurn) {
+    Serial.print("ERR TURN ");
+    Serial.println(turnDeg, 2);
+    return;
+  }
+
+  bool okPick = sc.pickSequence();
+  finishAction();
+
+  if (okPick) {
+    Serial.print("PICK_DONE ");
+    Serial.println(turnDeg, 2);
+  } else {
+    Serial.println("ERR PICK");
+  }
+}
+
+static void handleDrop() {
+  startAction();
+
+  bool okMove = dropOff(motors, encoders);
+  finishAction();
+
+  if (!okMove) {
+    Serial.println("ERR DROPOFF");
+    return;
+  }
+
+  bool okPlace = sc.placeSequence();
+  finishAction();
+
+  if (okPlace) {
+    Serial.println("DROP_DONE");
+  } else {
+    Serial.println("ERR DROP");
+  }
+}
+
 static void handleLine(char* s) {
   while (*s == ' ' || *s == '\t') s++;
   if (*s == '\0') return;
@@ -127,11 +193,12 @@ static void handleLine(char* s) {
   while (*s == ' ' || *s == '\t') s++;
 
   if (c == 'V' || c == 'v') {
-    float l = 0, r = 0;
+    float l = 0.0f, r = 0.0f;
     if (parse2f(s, l, r)) {
       driveMode = DriveMode::CLOSED_LOOP_VEL;
       ctrl.setTargets(l, r);
       lastCmdMs = millis();
+
       Serial.print("OK V ");
       Serial.print(l, 3);
       Serial.print(' ');
@@ -145,7 +212,7 @@ static void handleLine(char* s) {
   }
 
   if (c == 'W' || c == 'w') {
-    float wl = 0, wr = 0;
+    float wl = 0.0f, wr = 0.0f;
     if (parse2f(s, wl, wr)) {
       const float k = (float)ENCODER_CPR / TWO_PI_F;
       float l_tps = wl * k;
@@ -174,6 +241,7 @@ static void handleLine(char* s) {
       openL = clampI16(l, -255, 255);
       openR = clampI16(r, -255, 255);
       lastCmdMs = millis();
+
       Serial.print("OK P ");
       Serial.print(openL);
       Serial.print(' ');
@@ -186,38 +254,10 @@ static void handleLine(char* s) {
     return;
   }
 
-  // Parse Turn & Pick Command Given turn angle (assuming motor stop command sent right before this)
-
   if (c == 'T' || c == 't') {
     float d = 0.0f;
     if (parse1f(s, d)) {
-      hardStop();
-      ctrl.resetControlState();
-      lastCmdMs = millis();
-
-      driveMode = DriveMode::TARGET_PICK;
-      bool ok_pick = false;
-      bool ok_turn = false;
-
-      ok_turn = turnDegrees(d, motors, encoders);
-
-      hardStop();
-      ctrl.resetControlState();   // reset immediately after turn
-
-      if (ok_turn) {
-        ok_pick = sc.pickSequence();
-        hardStop();
-        ctrl.resetControlState(); // reset again after pick sequence
-      }
-
-      lastCmdMs = millis();
-
-      if (ok_pick) {
-        Serial.print("PICK_DONE ");
-        Serial.println(d, 2);
-      } else {
-        Serial.println("ERR PICK");
-      }
+      handleTurnAndPick(d);
     } else {
       Serial.print("ERR T s='");
       Serial.print(s);
@@ -227,21 +267,7 @@ static void handleLine(char* s) {
   }
 
   if (c == 'D' || c == 'd') {
-    hardStop();
-    lastCmdMs = millis();
-    driveMode = DriveMode::SAFE_ZONE_DROP;
-
-    dropOff(0.0f, motors, encoders);
-    bool ok_drop = sc.placeSequence();
-
-    lastCmdMs = millis();
-
-    if (ok_drop) {
-      Serial.println("DROP_DONE");
-    } else {
-      Serial.println("ERR DROP");
-    }
-
+    handleDrop();
     return;
   }
 
@@ -257,13 +283,14 @@ static void handleLine(char* s) {
     if (parse1i(s, en)) {
       if (en) motors.enable();
       else motors.disable();
+
       lastCmdMs = millis();
       Serial.print("OK E ");
       Serial.println(en ? 1 : 0);
     } else {
       Serial.print("ERR E s='");
       Serial.print(s);
-      Serial.println("'          ");
+      Serial.println("'");
     }
     return;
   }
@@ -272,7 +299,6 @@ static void handleLine(char* s) {
   Serial.println(c);
 }
 
-// Non-blocking serial line reader
 static void pollSerial() {
   while (Serial.available() > 0) {
     char ch = (char)Serial.read();
@@ -284,8 +310,11 @@ static void pollSerial() {
       handleLine(lineBuf);
       lineLen = 0;
     } else {
-      if (lineLen < sizeof(lineBuf) - 1) lineBuf[lineLen++] = ch;
-      else lineLen = 0;
+      if (lineLen < sizeof(lineBuf) - 1) {
+        lineBuf[lineLen++] = ch;
+      } else {
+        lineLen = 0;
+      }
     }
   }
 }
@@ -293,16 +322,17 @@ static void pollSerial() {
 void setup() {
   Serial.begin(BAUD);
 
-  // 
+  encoders.begin(
+    ENC_L_A, ENC_L_B, ENC_L_SIGN,
+    ENC_R_A, ENC_R_B, ENC_R_SIGN
+  );
 
-
-  encoders.begin(ENC_L_A, ENC_L_B, ENC_L_SIGN,
-                 ENC_R_A, ENC_R_B, ENC_R_SIGN);
-
-  motors.begin(L_FWD_PWM, L_REV_PWM,
-               R_FWD_PWM, R_REV_PWM,
-               MOTOR_EN_PIN_L, MOTOR_EN_PIN_R,
-               MOTOR_EN_ACTIVE_HIGH);
+  motors.begin(
+    L_FWD_PWM, L_REV_PWM,
+    R_FWD_PWM, R_REV_PWM,
+    MOTOR_EN_PIN_L, MOTOR_EN_PIN_R,
+    MOTOR_EN_ACTIVE_HIGH
+  );
 
   motors.setMaxAbsCmd(255);
 
