@@ -70,7 +70,7 @@ class Config:
     INNER_HZ = 150.0
     DT_INNER = 1.0 / INNER_HZ
     MAX_RUN_S = 1000
-    LINE_LOST_TIMEOUT = 0.90
+    LINE_LOST_TIMEOUT = 2
     # State Machine
     START_DELAY_S = 1.0
     BULLSEYE_LOST_TIMEOUT = 0.4
@@ -90,13 +90,13 @@ class Config:
 
     # Control - Yaw
     YAW_SLEW = 3.0
-    WHEEL_OMEGA_LIMIT = 5
+    WHEEL_OMEGA_LIMIT = 10
     OFFSET_TO_ANGLE_GAIN = 0.001
-    KP_THETA = 2.4
-    KD_THETA = 0.005
+    KP_THETA = 1.75
+    KD_THETA = 0.0175
     U_YAW_LIMIT = 1.25
     
     # Control - Bullseye Pickup
     BULLSEYE_ANGLE_TOL_DEG = 5.0
-    BULLSEYE_PICKUP_Y = 300
+    BULLSEYE_PICKUP_Y = 200
     POST_PICK_SETTLE_S = 0.0
