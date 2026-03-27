@@ -387,7 +387,6 @@ def main():
                                     outer.reset()
                                 resume_find_safety_at = now + post_pick_settle_s
                                 sm.transition_to(State.FIND_SAFETY)
-                                print("sm set to FIND_SAFETY")
                             elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
                                 print("pickup failed:", last_ack)
                                 sm.transition_to(State.FAULT)
@@ -462,7 +461,6 @@ def main():
                 #             sm.transition_to(State.FAULT)
 
                 elif sm.state == State.FIND_SAFETY:
-                    print("sm entered FIND_SAFETY")
                     if resume_find_safety_at is not None and now < resume_find_safety_at:
                         halted = True
                         yaw_cmd = 0.0
@@ -491,8 +489,6 @@ def main():
                             yaw_slew,
                         )
                         pd_update_count += pd_inc
-                        
-                        print("after pickup:", sm.state, halted, line_valid, line_theta_deg, yaw_cmd, v_cmd)
 
                         if line_lost_since is not None and now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
                             print("Line lost while finding safety. Ending run.")
