@@ -118,13 +118,11 @@ def update_line_follow(
         else:
             yaw_cmd = yaw_target
         
-        if abs(line_theta_deg) > cfg.MIN_TURN_ANGLE:
-            v_cmd = slew(v_cmd, cfg.TURN_SPEED, v_slew_up, v_slew_down, cfg.DT_OUTER)
-        else:
-            # speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
-            v_target = cfg.vmax
-            v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
-            v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
+
+        # speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
+        v_target = cfg.vmax
+        v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
+        v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
 
         return halted, yaw_cmd, v_cmd, line_lost_since, 1
 
@@ -234,7 +232,7 @@ def main():
     usb_send_count = 0
     
     # near your other setup vars
-    post_pick_settle_s = getattr(cfg, "POST_PICK_SETTLE_S", 1.0)
+    post_pick_settle_s = getattr(cfg, "POST_PICK_SETTLE_S", 0)
     resume_find_safety_at = None
 
     try:

@@ -56,7 +56,7 @@ class Config:
     # Robot Geometry
     r = 0.04
     L = 0.20
-    vmax = 0.2
+    vmax = 0.15
     wmax = vmax / r  # 6.25 rad/s is based off latency constraint, not firm
 
     # Encoder
@@ -67,7 +67,7 @@ class Config:
     INNER_HZ = 150.0
     DT_INNER = 1.0 / INNER_HZ
     MAX_RUN_S = 1000
-    LINE_LOST_TIMEOUT = 1.5
+    LINE_LOST_TIMEOUT = 2.0
     
     # Control - State Machine
     START_DELAY_S = 1.0
@@ -97,4 +97,4 @@ class Config:
     # Control - Bullseye Pickup
     BULLSEYE_ANGLE_TOL_DEG = 5.0
     BULLSEYE_PICKUP_Y = 300
-    POST_PICK_SETTLE_S = 0.5
+    POST_PICK_SETTLE_S = 0.0
