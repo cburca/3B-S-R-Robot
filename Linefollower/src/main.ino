@@ -179,6 +179,22 @@ static void handleDrop() {
   }
 }
 
+static void handlePlaceOnly() {
+  startAction();
+
+  motors.stop();
+
+  bool okPlace = sc.placeSequence();
+
+  finishAction();
+
+  if (okPlace) {
+    Serial.println("DROP_DONE");
+  } else {
+    Serial.println("ERR DROP");
+  }
+}
+
 static void handleLine(char* s) {
   while (*s == ' ' || *s == '\t') s++;
   if (*s == '\0') return;
@@ -235,22 +251,7 @@ static void handleLine(char* s) {
   }
 
   if (c == 'P' || c == 'p') {
-    int32_t l = 0, r = 0;
-    if (parse2i(s, l, r)) {
-      driveMode = DriveMode::OPEN_LOOP_PWM;
-      openL = clampI16(l, -255, 255);
-      openR = clampI16(r, -255, 255);
-      lastCmdMs = millis();
-
-      Serial.print("OK P ");
-      Serial.print(openL);
-      Serial.print(' ');
-      Serial.println(openR);
-    } else {
-      Serial.print("ERR P s='");
-      Serial.print(s);
-      Serial.println("'");
-    }
+    handlePlaceOnly();
     return;
   }
 
