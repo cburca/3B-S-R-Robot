@@ -260,50 +260,84 @@ class SafezoneDetector:
         k = int(cfg.MORPH_K)
         self.kernel = np.ones((k, k), dtype=np.uint8)
 
-    def detect(self, ctx: FrameContext) -> DetectionResult:
+    def detect(self, ctx: FrameContext, red_line_x: int = None) -> DetectionResult:
         frame = ctx.frame
         h, w = frame.shape[:2]
+        
+        if red_line_x is None:
+            red_line_x = w // 2
 
         # --- GREEN MASK ---
         mask = cv.inRange(ctx.hsv, self.green_lower, self.green_upper)
         mask = cv.morphologyEx(mask, cv.MORPH_OPEN, self.kernel, iterations=1)
         mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, self.kernel, iterations=2)
 
-        # --- REGION OF INTEREST (top band) ---
+        # --- REGION OF INTEREST (band) ---
         y_top = int(self.cfg.SAFEZONE_Y_MIN * h)
         y_bot = int(self.cfg.SAFEZONE_Y_MAX * h)
-
-        left   = mask[y_top:y_bot, :w//3]
-        center = mask[y_top:y_bot, w//3:2*w//3]
-        right  = mask[y_top:y_bot, 2*w//3:]
-
-        # --- PIXEL COUNTS ---
-        left_count = cv.countNonZero(left)
-        center_count = cv.countNonZero(center)
-        right_count = cv.countNonZero(right)
-
-        # --- DETECTION LOGIC ---
-        detected = (
-            left_count  > self.cfg.SAFEZONE_MIN_PIXELS and
-            right_count > self.cfg.SAFEZONE_MIN_PIXELS and
-            center_count < self.cfg.SAFEZONE_MAX_CENTER_PIXELS
+        
+        roi_mask = np.zeros_like(mask)
+        roi_mask[y_top:y_bot, :] = mask[y_top:y_bot, :]
+        
+        # --- LINE DETECTION ---
+        edges = cv.Canny(roi_mask, self.cfg.CANNY1, self.cfg.CANNY2)
+        lines = cv.HoughLinesP(
+            edges,
+            rho=1,
+            theta=np.pi / 180.0,
+            threshold=self.cfg.HOUGH_THRESH,
+            minLineLength=self.cfg.MIN_LINE_LEN,
+            maxLineGap=self.cfg.MAX_LINE_GAP
         )
+
+        left_lines_y = []
+        right_lines_y = []
+        
+        dbg = frame.copy() if self.cfg.DEBUG_DRAW else None
+
+        if lines is not None:
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                dx = float(x2 - x1)
+                dy = float(y2 - y1)
+                
+                # Angle from vertical (0 is vertical, 90/-90 is horizontal)
+                angle = np.degrees(np.arctan2(dx, dy))
+                
+                # Roughly horizontal: abs(angle) in [70, 110]
+                if 70 < abs(angle) < 110:
+                    if dbg is not None:
+                        cv.line(dbg, (x1, y1), (x2, y2), (0, 255, 255), 2)
+                    
+                    mx = (x1 + x2) / 2
+                    my = (y1 + y2) / 2
+                    if mx < red_line_x - 10:
+                        left_lines_y.append(my)
+                    elif mx > red_line_x + 10:
+                        right_lines_y.append(my)
+
+        # Check for matching pairs on left and right at similar Y
+        detected = False
+        for ly in left_lines_y:
+            for ry in right_lines_y:
+                if abs(ly - ry) < 30: # tolerance for y-alignment in pixels
+                    detected = True
+                    break
+            if detected: break
 
         # --- DEBUG ---
         debug = {}
         if self.cfg.DEBUG_SHOW:
-            dbg = frame.copy()
+            if dbg is None: dbg = frame.copy()
 
-            cv.rectangle(dbg, (0, y_top), (w//3, y_bot), (255, 0, 0), 2)
-            cv.rectangle(dbg, (w//3, y_top), (2*w//3, y_bot), (0, 255, 0), 2)
-            cv.rectangle(dbg, (2*w//3, y_top), (w, y_bot), (0, 0, 255), 2)
-
-            cv.putText(dbg, f"L:{left_count}", (10, 30),
-                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
-            cv.putText(dbg, f"C:{center_count}", (10, 60),
-                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
-            cv.putText(dbg, f"R:{right_count}", (10, 90),
-                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255,255,255), 2)
+            cv.rectangle(dbg, (0, y_top), (w, y_bot), (255, 0, 0), 1)
+            cv.line(dbg, (red_line_x, 0), (red_line_x, h), (255, 255, 255), 1)
+            
+            status = "SAFEZONE" if detected else "SEARCHING"
+            cv.putText(dbg, f"Status: {status}", (10, 30),
+                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0) if detected else (0, 0, 255), 2)
+            cv.putText(dbg, f"L:{len(left_lines_y)} R:{len(right_lines_y)}", (10, 60),
+                       cv.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
 
             debug["frame"] = dbg
             debug["mask"] = mask

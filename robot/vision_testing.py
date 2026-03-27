@@ -53,47 +53,47 @@ from vision.vision_system import FrameContext, BullseyeDetector, LineDetector, D
 ### Green Safe Zone Detection ###
 
 
-# if __name__ == "__main__":
-#     cfg = Config()
-#     # detector = BullseyeDetector(cfg)
-#     # detector = LineDetector(cfg)
-#     # blue_scan = blue_detector(cfg)
-#     detector = SafezoneDetector(cfg)
+if __name__ == "__main__":
+    cfg = Config()
+    # detector = BullseyeDetector(cfg)
+    # detector = LineDetector(cfg)
+    # blue_scan = blue_detector(cfg)
+    detector = SafezoneDetector(cfg)
 
-#     cap = cv.VideoCapture(0)  # default cam, Maybe make COM4
+    cap = cv.VideoCapture(0)  # default cam, Maybe make COM4
 
-#     if not cap.isOpened():
-#         print("can't open camera.")
-#         raise SystemExit
+    if not cap.isOpened():
+        print("can't open camera.")
+        raise SystemExit
 
-#     try:
-#         while True:
-#             ret, frame = cap.read()
-#             if not ret:
-#                 print("Failed to read frame.")
-#                 break
+    try:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print("Failed to read frame.")
+                break
             
-#             ctx = FrameContext(frame)
-#             result = detector.detect(ctx)
-#             # blue_found = blue_scan.detect_blue(ctx)
+            ctx = FrameContext(frame)
+            result = detector.detect(ctx)
+            # blue_found = blue_scan.detect_blue(ctx)
 
-#             print(
-#                 f"valid={result.found}"
-#             )
+            print(
+                f"valid={result.found}"
+            )
 
-#             debug = result.debug
+            debug = result.debug
 
-#             if "frame" in debug:
-#                 cv.imshow("frame", debug["frame"])
-#             if "mask" in debug:
-#                 cv.imshow("mask", debug["mask"])
-#             if "edges" in debug:
-#                 cv.imshow("edges", debug["edges"])
+            if "frame" in debug:
+                cv.imshow("frame", debug["frame"])
+            if "mask" in debug:
+                cv.imshow("mask", debug["mask"])
+            if "edges" in debug:
+                cv.imshow("edges", debug["edges"])
 
-#             if cv.waitKey(1) & 0xFF == ord("q"):
-#                 break
+            if cv.waitKey(1) & 0xFF == ord("q"):
+                break
 
-#     finally:
-#         cap.release()
-#         cv.destroyAllWindows()
+    finally:
+        cap.release()
+        cv.destroyAllWindows()
 
