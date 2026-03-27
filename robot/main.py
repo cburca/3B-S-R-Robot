@@ -508,7 +508,7 @@ def main():
                     if not dropoff_sent:
                         last_ack = None
                         io.write("S\n")
-                        io.write("D\n")
+                        io.write("P\n")
                         dropoff_sent = True
 
                     if last_ack:
