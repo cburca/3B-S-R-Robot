@@ -71,9 +71,9 @@ static const uint8_t UNGRIP_POS = 180;
 static const uint8_t LIFT_POS = 0;
 static const uint8_t LOWER_POS = 180;
 
-static const uint16_t GRIP_DELAY = 500; // ms to wait after gripping/ungripping
+static const uint16_t GRIP_DELAY = 800; // ms to wait after gripping/ungripping
 static const uint16_t LOWER_DELAY = 500; // ms to wait after lowering
-static const uint16_t RAISE_DELAY = 500; // ms to wait after raising
+static const uint16_t RAISE_DELAY = 800; // ms to wait after raising
 
 constexpr uint32_t TURN_TIMEOUT_MS = 3000;
 constexpr uint32_t DROPOFF_TIMEOUT_MS = 3000;

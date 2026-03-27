@@ -88,7 +88,7 @@ class Config:
     YAW_SLEW = 0.0
     WHEEL_OMEGA_LIMIT = 10
     OFFSET_TO_ANGLE_GAIN = 0.001
-    KP_THETA = 2.2
+    KP_THETA = 2.4
     KD_THETA = 0.005
     U_YAW_LIMIT = 1.0
     

@@ -6,7 +6,8 @@ void ServoControl::begin() {
     SyringeServo.attach(12);
     LiftServo.attach(13);
 
-    // set to neutral position  
+    LiftServo.write(LIFT_POS);
+    SyringeServo.write(180);  
 }
 
 bool ServoControl::pickSequence() {
