@@ -5,12 +5,12 @@ class Config:
     CAM_H = 480
     CAM_FPS = 30.0
 
-    # Serial Communication
+    # Serial
     BAUD = 115200
     SERIAL_TIMEOUT = 0.1
     SERIAL_HANDSHAKE = True
     SERIAL_WAIT_TIMEOUT = 15.0
-    SERIAL_PORT = 'dev/ttyACM0' # port on Raspberry PI, fwt and I'll cut you
+    SERIAL_PORT = "/dev/ttyACM0"
 
     # Main Loop
     LOOP_HZ = 20.0
@@ -27,27 +27,30 @@ class Config:
     GREEN_UPPER = (141, 225, 255)
     
     KERNEL_SIZE = 5
-    MIN_CIRCLE_AREA = 100
-    MIN_BLUE_AREA = 1000
+    MORPH_K = 5
+
+    MIN_CIRCLE_AREA = 150
+    MIN_BLUE_AREA = 1200
+    MIN_MASK_AREA = 600
 
     # Image Processing
-    MIN_MASK_AREA = 400
-    CANNY1, CANNY2 = 50, 150
+    CANNY1 = 50
+    CANNY2 = 150
     HOUGH_THRESH = 30
-    MIN_LINE_LEN = 25
-    MAX_LINE_GAP = 10
-    MORPH_K = 5
+    MIN_LINE_LEN = 35
+    MAX_LINE_GAP = 8
     YREF_FRAC = 0.85
-    MAX_ABS_DEG_FROM_VERTICAL = 60.0
-    BULLSEYE_ANGLE_TOL_DEG = 10.0
-    BULLSEYE_PICKUP_Y = 340
+    MAX_ABS_DEG_FROM_VERTICAL = 40.0
 
-    # Safezone stuff
-    SAFEZONE_Y_MIN = 0.05      # top of image
-    SAFEZONE_Y_MAX = 0.25      # thickness of detection band
+    # Bullseye
+    BULLSEYE_ANGLE_TOL_DEG = 5.0
+    BULLSEYE_PICKUP_Y = 300
 
-    SAFEZONE_MIN_PIXELS = 300   # left/right threshold
-    SAFEZONE_MAX_CENTER_PIXELS = 100  # must stay low (no green in center)
+    # Safezone
+    SAFEZONE_Y_MIN = 0.05
+    SAFEZONE_Y_MAX = 0.25
+    SAFEZONE_MIN_PIXELS = 300
+    SAFEZONE_MAX_CENTER_PIXELS = 100
 
     # Debug
     DEBUG_SHOW = True
@@ -63,13 +66,12 @@ class Config:
     ENCODER_CPR = 2797
 
     # Timing
-    DT_OUTER = 1.0 / CAM_FPS # ~0.033s
+    DT_OUTER = 1.0 / LOOP_HZ
     INNER_HZ = 150.0
     DT_INNER = 1.0 / INNER_HZ
     MAX_RUN_S = 1000
-    LINE_LOST_TIMEOUT = 2.0
-    
-    # Control - State Machine
+    LINE_LOST_TIMEOUT = 0.90
+    # State Machine
     START_DELAY_S = 1.0
     BULLSEYE_LOST_TIMEOUT = 0.4
     BULLSEYE_ALIGN_KP = 0.01
@@ -87,12 +89,12 @@ class Config:
     TURN_SPEED = 0.1
 
     # Control - Yaw
-    YAW_SLEW = 0.0
-    WHEEL_OMEGA_LIMIT = 10
+    YAW_SLEW = 3.0
+    WHEEL_OMEGA_LIMIT = 5
     OFFSET_TO_ANGLE_GAIN = 0.001
     KP_THETA = 2.4
     KD_THETA = 0.005
-    U_YAW_LIMIT = 5.0
+    U_YAW_LIMIT = 1.25
     
     # Control - Bullseye Pickup
     BULLSEYE_ANGLE_TOL_DEG = 5.0
