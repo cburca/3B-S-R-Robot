@@ -86,6 +86,13 @@ def run_blue_detector(detector, ctx):
     return bool(getattr(result, "found", False))
 
 
+def is_terminal_action_ack(msg):
+    return msg.startswith((
+        "PICK_DONE", "ERR PICK", "ERR T",
+        "DROP_DONE", "ERR DROP", "ERR D"
+    ))
+
+
 def update_line_follow(
     cfg,
     outer,
@@ -339,17 +346,32 @@ def main():
                             v_cmd = 0.0
                             
                             if not pickup_sent:
+                                pickup_sent = True
+                                halted = True
+                                halted_prev = True
                                 last_ack = None
+
+                                try:
+                                    io.ser.reset_input_buffer()
+                                except Exception:
+                                    pass
+
                                 io.write("S\n")
                                 io.write(f"T {pending_turn_angle:.2f}\n")
-                                pickup_sent = True
                                 print("pickup sent")
 
                             while not last_ack:
-                                print("still waiting for ack")
                                 ack = io.read()
-                                if ack:
-                                    last_ack = ack.strip()
+                                if not ack:
+                                    continue
+
+                                ack = ack.strip()
+
+                                if is_terminal_action_ack(ack):
+                                    last_ack = ack
+                                else:
+                                    # ignore ACK_S, ACK_V, or any other non-terminal reply
+                                    continue
 
                             if last_ack.startswith("PICK_DONE"): # MUST HAVE SPACE AFTER PICK_DONE
                                 print("pickup acknowledged:", last_ack)
@@ -534,8 +556,6 @@ def main():
                 dropoff_action_active = (
                     sm.state == State.DEPOSITION and dropoff_sent
                 )
-                
-                
                 action_active = pickup_action_active or dropoff_action_active
 
                 if not action_active:
@@ -563,12 +583,14 @@ def main():
 
                 ack = io.read()
                 if ack:
-                    last_ack = ack.strip()
-                    if last_ack.startswith("ERR"):
-                        print("ARDUINO:", last_ack)
+                    ack = ack.strip()
 
-                while t_next_inner <= now:
-                    t_next_inner += cfg.DT_INNER
+                    if action_active:
+                        if is_terminal_action_ack(ack):
+                            last_ack = ack
+                    else:
+                        if ack.startswith("ERR"):
+                            print("ARDUINO:", ack)
 
     finally:
         total_runtime = time.perf_counter() - stats_start
