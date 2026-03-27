@@ -9,6 +9,8 @@ public:
   void setTargets(float left, float right); // ticks/s
   void update(); // fixed-rate
   void stop();
+  void resetCounts();
+  void resetControlState();
 private:
   PID _pidL, _pidR;
   Encoders* _enc;

@@ -202,6 +202,8 @@ static void handleLine(char* s) {
 
       lastCmdMs = millis();
 
+      ctrl.resetControlState();
+
       if (ok_pick) {
         Serial.print("PICK_DONE ");
         Serial.println(d, 2);

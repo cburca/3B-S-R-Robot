@@ -50,3 +50,23 @@ void MotorController::stop() {
   _lastMs = millis();
 }
 
+void MotorController::resetCounts() {
+  _enc->reset();
+  _prevCountL = 0;
+  _prevCountR = 0;
+  _lastMs = millis();
+}
+
+void MotorController::resetControlState() {
+  _pidL.reset();
+  _pidR.reset();
+  _spL = 0;
+  _spR = 0;
+  _mot->set(0, 0);
+
+  _enc->reset();
+  _prevCountL = 0;
+  _prevCountR = 0;
+  _lastMs = millis();
+}
+
