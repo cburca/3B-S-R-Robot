@@ -192,17 +192,25 @@ static void handleLine(char* s) {
     float d = 0.0f;
     if (parse1f(s, d)) {
       hardStop();
+      ctrl.resetControlState();
       lastCmdMs = millis();
+
       driveMode = DriveMode::TARGET_PICK;
       bool ok_pick = false;
+      bool ok_turn = false;
 
-      if (turnDegrees(d, motors, encoders)) {
+      ok_turn = turnDegrees(d, motors, encoders);
+
+      hardStop();
+      ctrl.resetControlState();   // reset immediately after turn
+
+      if (ok_turn) {
         ok_pick = sc.pickSequence();
+        hardStop();
+        ctrl.resetControlState(); // reset again after pick sequence
       }
 
       lastCmdMs = millis();
-
-      ctrl.resetControlState();
 
       if (ok_pick) {
         Serial.print("PICK_DONE ");
