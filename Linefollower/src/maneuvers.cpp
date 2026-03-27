@@ -93,7 +93,7 @@ static bool runManeuver(
 }
 
 bool turnDegrees(float turn_deg, Motors& motors, Encoders& encoders) {
-    const float commanded_deg = turn_deg + TUNABLE_ANG_OFFSET;
+    const float commanded_deg = turn_deg + copysignf(TUNABLE_ANG_OFFSET, turn_deg);
 
     if (fabsf(commanded_deg) <= 1e-3f) {
         motors.stop();
