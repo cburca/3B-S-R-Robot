@@ -224,7 +224,7 @@ def main():
     usb_send_count = 0
     
     # near your other setup vars
-    post_pick_settle_s = getattr(cfg, "POST_PICK_SETTLE_S", 1)
+    post_pick_settle_s = getattr(cfg, "POST_PICK_SETTLE_S", 1.0)
     resume_find_safety_at = None
 
     try:
@@ -333,6 +333,7 @@ def main():
                             )
                             pending_turn_angle = wrap_deg(180.0 - final_bullseye_angle_deg)
 
+                            print("bullseye lined up")
                             halted = True
                             yaw_cmd = 0.0
                             v_cmd = 0.0
@@ -342,8 +343,10 @@ def main():
                                 io.write("S\n")
                                 io.write(f"T {pending_turn_angle:.2f}\n")
                                 pickup_sent = True
+                                print("pickup sent")
 
                             while not last_ack:
+                                print("still waiting for ack")
                                 ack = io.read()
                                 if ack:
                                     last_ack = ack.strip()
@@ -363,9 +366,10 @@ def main():
                                     outer.reset()
                                 resume_find_safety_at = now + post_pick_settle_s
                                 sm.transition_to(State.FIND_SAFETY)
+                                print("sm set to FIND_SAFETY")
                             elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
                                 print("pickup failed:", last_ack)
-                                sm.transstion_to(State.FAULT)
+                                sm.transition_to(State.FAULT)
                         else:
                             if bullseye_angle_deg is not None and not angle_ok:
                                 yaw_target = clamp(
@@ -403,6 +407,7 @@ def main():
                             else:
                                 v_cmd = 0.0
                     else:
+                        print("bullseye lost")
                         halted = True
                         yaw_cmd = 0.0
                         v_cmd = 0.0
@@ -412,6 +417,7 @@ def main():
 
                         if now - bullseye_lost_since >= bullseye_lost_timeout:
                             sm.transition_to(State.DONE)
+                            print("sm set to DONE")
 
                 # elif sm.state == State.RETRIEVAL:
                 #     halted = True
@@ -433,6 +439,7 @@ def main():
                 #             sm.transition_to(State.FAULT)
 
                 elif sm.state == State.FIND_SAFETY:
+                    print("sm entered FIND_SAFETY")
                     if resume_find_safety_at is not None and now < resume_find_safety_at:
                         halted = True
                         yaw_cmd = 0.0
