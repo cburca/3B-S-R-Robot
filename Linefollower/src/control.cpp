@@ -24,19 +24,20 @@ void MotorController::setTargets(float left, float right) {
 
 void MotorController::update() {
   uint32_t now = millis();
-  if (now - _lastMs < _dt * 1000) return; // not time yet
+  float dt = (now - _lastMs) * 0.001f;
+  if (dt < _dt) return;
   _lastMs = now;
 
   int32_t countL, countR;
   _enc->readCounts(countL, countR);
 
-  float measL = (countL - _prevCountL) / _dt;
-  float measR = (countR - _prevCountR) / _dt;
+  float measL = (countL - _prevCountL) / dt;
+  float measR = (countR - _prevCountR) / dt;
   _prevCountL = countL;
   _prevCountR = countR;
 
-  int16_t cmdL = (int16_t)_pidL.update(_spL, measL, _dt);
-  int16_t cmdR = (int16_t)_pidR.update(_spR, measR, _dt);
+  int16_t cmdL = (int16_t)_pidL.update(_spL, measL, dt);
+  int16_t cmdR = (int16_t)_pidR.update(_spR, measR, dt);
   _mot->set(cmdL, cmdR);
 }
 
@@ -44,5 +45,8 @@ void MotorController::stop() {
   _pidL.reset();
   _pidR.reset();
   setTargets(0, 0);
+  _mot->set(0, 0);
+  _enc->readCounts(_prevCountL, _prevCountR);
+  _lastMs = millis();
 }
 
