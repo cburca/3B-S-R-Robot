@@ -21,8 +21,8 @@ class Config:
     RED_UPPER1 = (10, 255, 255)
     RED_LOWER2 = (160, 100, 100)
     RED_UPPER2 = (180, 255, 255)
-    BLUE_LOWER = (100, 90, 80)
-    BLUE_UPPER = (120, 255, 255)
+    BLUE_LOWER = (72, 125, 151)
+    BLUE_UPPER = (133, 255, 255)
     GREEN_LOWER = (64, 75, 61)
     GREEN_UPPER = (141, 225, 255)
     
