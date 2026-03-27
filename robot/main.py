@@ -351,7 +351,7 @@ def main():
                                 if ack:
                                     last_ack = ack.strip()
 
-                            if last_ack.startswith("PICK_DONE"):
+                            if last_ack.startswith("PICK_DONE "): # MUST HAVE SPACE AFTER PICK_DONE
                                 print("pickup acknowledged:", last_ack)
                                 for _ in range(20):
                                     cap.read()
