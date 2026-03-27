@@ -224,7 +224,7 @@ def main():
     usb_send_count = 0
     
     # near your other setup vars
-    post_pick_settle_s = getattr(cfg, "POST_PICK_SETTLE_S", 0.35)
+    post_pick_settle_s = getattr(cfg, "POST_PICK_SETTLE_S", 1)
     resume_find_safety_at = None
 
     try:
