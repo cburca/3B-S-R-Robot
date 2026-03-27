@@ -491,8 +491,14 @@ def main():
                         pd_update_count += pd_inc
 
                         if line_lost_since is not None and now - line_lost_since >= cfg.LINE_LOST_TIMEOUT:
-                            print("Line lost while finding safety. Ending run.")
-                            sm.transition_to(State.DONE)
+                            print("Line lost while finding safety. Starting dropoff.")
+                            halted = True
+                            yaw_cmd = 0.0
+                            v_cmd = 0.0
+                            line_lost_since = None
+                            last_ack = None
+                            dropoff_sent = False
+                            sm.transition_to(State.DEPOSITION)
 
                 elif sm.state == State.DEPOSITION:
                     halted = True
