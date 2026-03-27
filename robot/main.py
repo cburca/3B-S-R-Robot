@@ -351,10 +351,8 @@ def main():
                                 if ack:
                                     last_ack = ack.strip()
 
-                            if last_ack.startswith("PICK_DONE "): # MUST HAVE SPACE AFTER PICK_DONE
+                            if last_ack.startswith("PICK_DONE"): # MUST HAVE SPACE AFTER PICK_DONE
                                 print("pickup acknowledged:", last_ack)
-                                for _ in range(20):
-                                    cap.read()
 
                                 halted = True
                                 yaw_cmd = 0.0
@@ -370,6 +368,8 @@ def main():
                             elif last_ack.startswith("ERR PICK") or last_ack.startswith("ERR T"):
                                 print("pickup failed:", last_ack)
                                 sm.transition_to(State.FAULT)
+                            else:
+                                print(f"unepexcted ack: {last_ack}")
                         else:
                             if bullseye_angle_deg is not None and not angle_ok:
                                 yaw_target = clamp(
@@ -528,7 +528,15 @@ def main():
                     t_next_outer += cfg.DT_OUTER
 
             if now >= t_next_inner:
-                action_active = sm.state in {State.RETRIEVAL, State.DEPOSITION}
+                pickup_action_active = (
+                    sm.state == State.BULLSEYE_LINEUP and pickup_sent
+                )
+                dropoff_action_active = (
+                    sm.state == State.DEPOSITION and dropoff_sent
+                )
+                
+                
+                action_active = pickup_action_active or dropoff_action_active
 
                 if not action_active:
                     if halted:
