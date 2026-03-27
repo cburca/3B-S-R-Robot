@@ -79,10 +79,12 @@ class Config:
     BULLSEYE_CREEP_MAX = 0.06
     
     # Control - Velocity
-    V_SLEW_UP = 0.25 
-    V_SLEW_DOWN = 0.75 
+    V_SLEW_UP = 0.25
+    V_SLEW_DOWN = 0.75
     V_MIN = 0.01
-    KV = 0.0 # Speed reduction factor when turning, might remove
+    KV = 0.01 # Speed reduction factor when turning, might remove
+    MIN_TURN_ANGLE = 30 # if line_theta_deg > this, go at reduced speed
+    TURN_SPEED = 0.1
 
     # Control - Yaw
     YAW_SLEW = 0.0
@@ -90,7 +92,7 @@ class Config:
     OFFSET_TO_ANGLE_GAIN = 0.001
     KP_THETA = 2.4
     KD_THETA = 0.005
-    U_YAW_LIMIT = 1.0
+    U_YAW_LIMIT = 5.0
     
     # Control - Bullseye Pickup
     BULLSEYE_ANGLE_TOL_DEG = 5.0

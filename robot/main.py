@@ -117,11 +117,14 @@ def update_line_follow(
             yaw_cmd = slew(yaw_cmd, yaw_target, yaw_slew, yaw_slew, cfg.DT_OUTER)
         else:
             yaw_cmd = yaw_target
-
-        speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
-        v_target = cfg.vmax * speed_scale
-        v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
-        v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
+        
+        if abs(line_theta_deg) > cfg.MIN_TURN_ANGLE:
+            v_cmd = slew(v_cmd, cfg.TURN_SPEED, v_slew_up, v_slew_down, cfg.DT_OUTER)
+        else:
+            # speed_scale = 1.0 / (1.0 + cfg.KV * abs(yaw_cmd))
+            v_target = cfg.vmax
+            v_target = clamp(v_target, cfg.V_MIN, cfg.vmax)
+            v_cmd = slew(v_cmd, v_target, v_slew_up, v_slew_down, cfg.DT_OUTER)
 
         return halted, yaw_cmd, v_cmd, line_lost_since, 1
 
