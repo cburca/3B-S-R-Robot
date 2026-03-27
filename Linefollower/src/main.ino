@@ -219,7 +219,7 @@ static void handleLine(char* s) {
     lastCmdMs = millis();
     driveMode = DriveMode::SAFE_ZONE_DROP;
 
-    dropOff(0.0f, motors, encoders);
+    dropOff(motors, encoders);
     bool ok_drop = sc.placeSequence();
 
     lastCmdMs = millis();

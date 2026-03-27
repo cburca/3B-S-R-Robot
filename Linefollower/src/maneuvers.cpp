@@ -30,7 +30,7 @@ static int32_t computeDropOffCounts(float offset_m) {
 }
 
 void turnDegrees(float turn_deg, Motors& motors, Encoders& encoders) {
-    if (fabsf(turn_deg) <= 1e-3f) {
+    if (fabsf(turn_deg + TUNABLE_ANG_OFFSET) <= 1e-3f) {
         motors.stop();
         return;
     }
@@ -38,8 +38,8 @@ void turnDegrees(float turn_deg, Motors& motors, Encoders& encoders) {
     int32_t start_left, start_right;
     encoders.readCounts(start_left, start_right);
 
-    const int8_t dir = (turn_deg >= 0.0f) ? 1 : -1;
-    const int32_t target_counts = computeTurnCounts(turn_deg);
+    const int8_t dir = ((turn_deg + TUNABLE_ANG_OFFSET)>= 0.0f) ? 1 : -1;
+    const int32_t target_counts = computeTurnCounts(turn_deg + TUNABLE_ANG_OFFSET);
 
     const uint32_t start_ms = millis();
     uint32_t last_sample_ms = start_ms;
@@ -91,11 +91,11 @@ void turnDegrees(float turn_deg, Motors& motors, Encoders& encoders) {
     }
 }
 
-void dropOff(float tunable_offset, Motors& motors, Encoders& encoders) {
+void dropOff(Motors& motors, Encoders& encoders) {
     int32_t start_left, start_right;
     encoders.readCounts(start_left, start_right);
 
-    const int32_t target_counts = computeDropOffCounts(tunable_offset);
+    const int32_t target_counts = computeDropOffCounts(TUNABLE_LIN_OFFSET);
 
     const uint32_t start_ms = millis();
     uint32_t last_sample_ms = start_ms;
