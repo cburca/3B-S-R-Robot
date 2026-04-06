@@ -30,7 +30,7 @@ class Config:
     MORPH_K = 5
 
     MIN_CIRCLE_AREA = 150
-    MIN_BLUE_AREA = 1200
+    MIN_BLUE_AREA = 10000
     MIN_MASK_AREA = 600
 
     # Image Processing
@@ -70,7 +70,7 @@ class Config:
     INNER_HZ = 150.0
     DT_INNER = 1.0 / INNER_HZ
     MAX_RUN_S = 1000
-    LINE_LOST_TIMEOUT = 2
+    LINE_LOST_TIMEOUT = 2.5
     # State Machine
     START_DELAY_S = 1.0
     BULLSEYE_LOST_TIMEOUT = 0.4
@@ -92,9 +92,9 @@ class Config:
     YAW_SLEW = 3.0
     WHEEL_OMEGA_LIMIT = 10
     OFFSET_TO_ANGLE_GAIN = 0.001
-    KP_THETA = 1.75
-    KD_THETA = 0.0175
-    U_YAW_LIMIT = 1.25
+    KP_THETA = 2.2
+    KD_THETA = 0.025
+    U_YAW_LIMIT = 1.5
     
     # Control - Bullseye Pickup
     BULLSEYE_ANGLE_TOL_DEG = 5.0
